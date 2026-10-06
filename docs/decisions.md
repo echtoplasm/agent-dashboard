@@ -170,8 +170,11 @@ GitHub Actions runs three independent jobs on every push and pull request:
   build.
 - **dependency-audit**: `npm audit --audit-level=high`.
 - **secret-scan**: gitleaks over the full git history. The repository is
-  public, so a leaked secret is exposed immediately. No gitleaks license is
-  needed for a personal account.
+  public, so a leaked secret is exposed immediately. It runs a pinned
+  gitleaks release binary, verified against its SHA-256 checksum, rather than
+  `gitleaks-action`. The action only scans the pushed commit range, and it
+  failed on this repository's first push. Dependabot doesn't track the binary
+  pin, so bump `GITLEAKS_VERSION` and `GITLEAKS_SHA256` by hand.
 
 Third-party actions are pinned to full commit SHAs, with the version in a
 comment, because tags can be moved to point at different code. Dependabot
