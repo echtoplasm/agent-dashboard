@@ -144,3 +144,18 @@ environment. Development seeds (a sample skill and agent) run only when
 `NODE_ENV=development`. Every seed skips rows that already exist rather than
 overwriting them, so re-seeding never undoes an admin's changes.
 `sortDirsSeparately` keeps base seeds running before development seeds.
+
+### D-012: Dependency injection through factory functions
+
+Modules expose `create*` factory functions (`createHealthRepository`,
+`createHealthService`, `createHealthRouter`) that take their dependencies as
+arguments, and `createApp` wires them together. No module reads globals or
+opens its own connection, so tests can substitute stubs or a test database
+without any mocking library. `server.ts` is the only file that reads
+`process.env` and opens real connections.
+
+### D-013: The health endpoint is the only unauthenticated route
+
+`GET /api/health` returns 200 or 503 and reports only up/down per
+dependency. Errors are logged on the server but never included in the
+response, since anyone who can reach the API can call this route.
