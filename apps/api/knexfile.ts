@@ -42,6 +42,9 @@ export function buildMigrationKnexConfig(migrationConfig: MigrationConfig): Knex
     },
     seeds: {
       directory: seedDirectories,
+      // Run every base seed before any development seed, rather than sorting
+      // all files together by name.
+      sortDirsSeparately: true,
       loadExtensions: [TYPESCRIPT_EXTENSION],
       extension: 'ts',
     },

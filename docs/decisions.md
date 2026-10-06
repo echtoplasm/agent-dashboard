@@ -125,3 +125,22 @@ per-event costs exact enough to sum.
   new helper instead.
 - **Avoid `?` in SQL passed through Knex**, including regexes in CHECK
   constraints, because Knex treats it as a placeholder. Write `{0,1}` instead.
+
+### D-010: Sandboxes never use host CLI credentials
+
+Sandboxed runs authenticate with provider API keys injected into the
+container at launch from secret configuration. They never read
+`~/.claude`, `~/.codex` or any other credential store on the API host, even
+though the developer's CLIs are logged in there for local testing. Adapters
+will point each CLI at an isolated config home inside the sandbox (for
+example `CODEX_HOME`) so a host login cannot be picked up by accident. Keys
+are never stored in Postgres and are removed from run events before they are
+logged.
+
+### D-011: Seeds insert only what is missing
+
+Base seeds (providers, the `locked-down` sandbox profile) run in every
+environment. Development seeds (a sample skill and agent) run only when
+`NODE_ENV=development`. Every seed skips rows that already exist rather than
+overwriting them, so re-seeding never undoes an admin's changes.
+`sortDirsSeparately` keeps base seeds running before development seeds.
