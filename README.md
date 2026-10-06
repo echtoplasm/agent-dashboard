@@ -3,9 +3,10 @@
 A self-hosted web dashboard for launching, monitoring, and governing AI coding
 agents (Claude Code and OpenAI Codex CLI), built to run in a homelab.
 
-> **Status:** Phase 1 (foundation) is complete: monorepo, database schema,
-> migrations and seeds, health endpoint, minimal web app and CI. Agent and
-> skill management, auth and run execution come in later phases.
+> **Status:** Phase 2 (registry) is complete. You can sign in, manage users,
+> agents, skills and immutable skill versions, assign skills to agents
+> within their sandbox profile's limits, and review the audit log. Running
+> agents comes in Phase 3.
 
 ## Repository layout
 
@@ -62,12 +63,24 @@ docs/decisions.md  Design decisions and the reasons for them
    npm run db:seed
    ```
 
-5. **Run the API and web app** in two terminals.
+5. **Create the first admin.** There are no default credentials. You'll be
+   asked for a password (at least 12 characters).
+
+   ```sh
+   npm run users:create-admin -- --username alice
+   ```
+
+6. **Run the API and web app** in two terminals, then open
+   http://127.0.0.1:5173 and sign in.
 
    ```sh
    npm run dev:api   # http://127.0.0.1:3000/api/health
    npm run dev:web   # http://127.0.0.1:5173
    ```
+
+   Open the app at the address Vite prints. State-changing requests are
+   only accepted from the origins in `APP_ORIGINS`, which defaults to
+   `http://127.0.0.1:5173` and `http://localhost:5173` in development.
 
 ## Scripts
 
@@ -81,6 +94,7 @@ Run from the repository root.
 | `npm run db:rollback`                                         | Roll back the last batch. Add `-- --all` to roll back everything    |
 | `npm run db:seed`                                             | Run seeds. Development sample data only when `NODE_ENV=development` |
 | `npm run db:make-migration -w @agent-dashboard/api -- <name>` | Create a migration from the stub                                    |
+| `npm run users:create-admin -- --username <name>`             | Create an admin (add `--password-stdin` to pipe the password in)    |
 | `npm run lint`                                                | ESLint with type-aware rules                                        |
 | `npm run format` / `format:check`                             | Prettier                                                            |
 | `npm run typecheck`                                           | `tsc --noEmit` in every workspace                                   |
@@ -100,6 +114,19 @@ npm run test:unit -w @agent-dashboard/api
 npm run test:integration -w @agent-dashboard/api
 ```
 
+## Roles and permissions
+
+| Action                                       | viewer | operator | admin |
+| -------------------------------------------- | :----: | :------: | :---: |
+| View agents, skills, profiles, providers     |   ✓    |    ✓     |   ✓   |
+| Read the audit log                           |        |    ✓     |   ✓   |
+| Manage agents, skills, versions, assignments |        |    ✓     |   ✓   |
+| Manage users, providers, sandbox profiles    |        |          |   ✓   |
+
+A skill can only be assigned to an agent if it supports the agent's provider
+and its permissions manifest fits within the agent's sandbox profile. The
+same rules are re-checked whenever an agent, profile or skill changes (D-021).
+
 ## Database roles
 
 The API never connects as the role that owns the schema:
@@ -115,11 +142,32 @@ database triggers that the app role cannot disable. See D-005 and D-009 in
 
 ## Security notes
 
+- Sessions are server-side; the browser holds only a random token in an
+  HttpOnly, SameSite=Strict cookie, and only its hash is stored (D-017).
+- State-changing requests must come from an allowed origin and use JSON
+  (D-018). Login and the whole API are rate limited per IP (D-019).
+- Every change is written to the append-only audit log in the same
+  transaction as the change itself (D-015).
+- Published skill files are read-only on disk and hash-verified on every
+  read (D-020).
 - Every secret lives in `.env` or in CI secrets, never in code. CI runs
   gitleaks over the full history.
 - The Postgres port is bound to localhost only.
 - Sandboxed agent runs will authenticate with API keys injected at launch,
   never with host CLI logins (`~/.claude`, `~/.codex`). See D-010.
+
+## Configuration
+
+All settings are environment variables, validated at startup (see
+`.env.example`). Besides the database URLs:
+
+| Variable            | Default                          | Purpose                                             |
+| ------------------- | -------------------------------- | --------------------------------------------------- |
+| `APP_ORIGINS`       | Vite dev origins (required prod) | Origins allowed to make state-changing requests     |
+| `TRUST_PROXY_HOPS`  | `0`                              | Reverse proxies in front of the API, for client IPs |
+| `SKILL_STORAGE_DIR` | `<repo>/data/skills`             | Where published skill files are stored              |
+| `API_PORT`          | `3000`                           | API port                                            |
+| `LOG_LEVEL`         | `info`                           | pino log level                                      |
 
 ## Troubleshooting
 
