@@ -14,7 +14,8 @@
     "db:migrate": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts migrate:latest",
     "db:rollback": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts migrate:rollback",
     "db:make-migration": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts migrate:make",
-    "db:seed": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts seed:run"
+    "db:seed": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts seed:run",
+    "users:create-admin": "tsx --conditions=source --env-file-if-exists=../../.env src/cli/create-admin.ts"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

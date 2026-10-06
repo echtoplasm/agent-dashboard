@@ -5,5 +5,11 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/db/migrations", "src/db/seeds", "src/db/db-cli.ts"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/db/migrations",
+    "src/db/seeds",
+    "src/db/db-cli.ts",
+    "src/cli"
+  ]
 }

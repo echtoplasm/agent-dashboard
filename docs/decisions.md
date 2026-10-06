@@ -180,3 +180,32 @@ Third-party actions are pinned to full commit SHAs, with the version in a
 comment, because tags can be moved to point at different code. Dependabot
 opens weekly PRs for both npm packages and action pins. The workflow token
 is limited to `contents: read`, and checkout does not persist credentials.
+
+## Phase 2: Registry, auth and audit
+
+### D-015: Services reach the database only through `DataAccess`
+
+`createDataAccess(database)` gives services two things: `repositories`
+for reads, and `runInTransaction(work)`, which hands `work` a fresh set of
+repositories bound to one transaction. Services never import Knex.
+Every state change and its audit entry are written in the same transaction,
+so an audit entry can never describe a change that was rolled back, and no
+change can commit without its audit entry.
+
+Repositories accept either the pool or a transaction (`DatabaseExecutor`)
+and return API-shaped camelCase objects with ISO timestamp strings. Unique
+violations are turned into `ConflictError` inside the repository, so services
+never inspect Postgres error codes.
+
+### D-016: Passwords hashed with Node's built-in scrypt
+
+Passwords use `crypto.scrypt` (N=2^15, r=8, p=1, about 32 MiB per hash)
+rather than the `argon2` package. scrypt is also memory-hard, needs no native
+build step, and adds no dependency. Hashes are stored as
+`scrypt$N$r$p$salt$hash`, so the cost can be raised later and old hashes
+still verify. Login for an unknown username runs a verification against a
+throwaway hash, so response time doesn't reveal which usernames exist.
+
+The first admin is created with `npm run users:create-admin`. No default
+credentials are ever seeded. The command runs as the app role and its
+`user.created` audit entry has no actor.

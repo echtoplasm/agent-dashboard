@@ -7,13 +7,7 @@
  * generic 500, so stack traces and internal messages never reach the client.
  */
 import type { ErrorRequestHandler, RequestHandler } from 'express';
-import {
-  AppError,
-  ERROR_CODES,
-  HTTP_STATUS,
-  NotFoundError,
-  ValidationError,
-} from '../errors/app-errors.js';
+import { AppError, ERROR_CODES, HTTP_STATUS, NotFoundError } from '../errors/app-errors.js';
 import type { ErrorCode, FieldProblem } from '../errors/app-errors.js';
 import type { Logger } from '../logger.js';
 
@@ -54,7 +48,7 @@ function isHttpClientError(error: unknown): error is HttpClientError {
 
 function buildAppErrorBody(error: AppError): ErrorResponseBody {
   const body: ErrorResponseBody = { error: { code: error.code, message: error.message } };
-  if (error instanceof ValidationError) {
+  if (error.fieldProblems !== undefined) {
     body.error.fieldProblems = error.fieldProblems;
   }
   return body;

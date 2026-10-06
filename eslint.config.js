@@ -16,7 +16,13 @@ const NAMING_CONVENTION_RULES = [
   { selector: 'import', format: null },
   // Module-level constants may use SCREAMING_SNAKE_CASE; React components and
   // Zod schemas are PascalCase values.
-  { selector: 'variable', format: ['camelCase', 'UPPER_CASE', 'PascalCase'] },
+  {
+    selector: 'variable',
+    format: ['camelCase', 'UPPER_CASE', 'PascalCase'],
+    // A leading underscore marks a deliberately unused binding, e.g. a field
+    // dropped by destructuring.
+    leadingUnderscore: 'allow',
+  },
   { selector: 'function', format: ['camelCase', 'PascalCase'] },
   { selector: 'typeLike', format: ['PascalCase'] },
   {
