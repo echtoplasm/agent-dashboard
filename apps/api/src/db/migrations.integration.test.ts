@@ -16,6 +16,7 @@ const EXPECTED_TABLES = [
   'audit_log',
   'run_events',
   'sandbox_profiles',
+  'sessions',
   'skill_supported_providers',
   'skill_versions',
   'skills',
