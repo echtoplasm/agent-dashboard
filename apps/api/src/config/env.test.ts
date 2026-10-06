@@ -16,7 +16,45 @@ describe('loadApiConfig', () => {
       apiPort: 3000,
       logLevel: 'info',
       databaseUrl: VALID_DATABASE_URL,
+      appOrigins: ['http://127.0.0.1:5173', 'http://localhost:5173'],
+      trustProxyHops: 0,
+      skillStorageDirectory: expect.stringMatching(/\/data\/skills$/) as string,
+      isSecureCookie: false,
     });
+  });
+
+  it('parses a comma-separated list of app origins', () => {
+    const apiConfig = loadApiConfig({
+      DATABASE_URL: VALID_DATABASE_URL,
+      APP_ORIGINS: 'https://dashboard.lab.example, http://10.0.0.5:8080',
+    });
+
+    expect(apiConfig.appOrigins).toEqual(['https://dashboard.lab.example', 'http://10.0.0.5:8080']);
+  });
+
+  it('rejects an app origin that includes a path', () => {
+    expect(() =>
+      loadApiConfig({ DATABASE_URL: VALID_DATABASE_URL, APP_ORIGINS: 'https://x.example/app' }),
+    ).toThrow(/APP_ORIGINS/);
+  });
+
+  it('requires APP_ORIGINS in production and marks cookies secure', () => {
+    expect(() =>
+      loadApiConfig({ DATABASE_URL: VALID_DATABASE_URL, NODE_ENV: 'production' }),
+    ).toThrow(/APP_ORIGINS/);
+
+    const apiConfig = loadApiConfig({
+      DATABASE_URL: VALID_DATABASE_URL,
+      NODE_ENV: 'production',
+      APP_ORIGINS: 'https://dashboard.lab.example',
+    });
+    expect(apiConfig.isSecureCookie).toBe(true);
+  });
+
+  it('requires an absolute skill storage directory', () => {
+    expect(() =>
+      loadApiConfig({ DATABASE_URL: VALID_DATABASE_URL, SKILL_STORAGE_DIR: 'data/skills' }),
+    ).toThrow(/SKILL_STORAGE_DIR/);
   });
 
   it('coerces API_PORT from a string', () => {

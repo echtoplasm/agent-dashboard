@@ -6,6 +6,8 @@
  * failing later on first use. Values are never echoed in error messages
  * because several of them contain credentials.
  */
+import { isAbsolute } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 /** Runtime environments the API recognises. */
@@ -17,6 +19,15 @@ export const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', '
 const DEFAULT_API_PORT = 3000;
 const MAX_TCP_PORT = 65_535;
 const POSTGRES_URL_PROTOCOL = /^postgres(ql)?$/;
+const MAX_TRUSTED_PROXY_HOPS = 10;
+
+/** Where the Vite dev server runs; the only browser origins allowed by default. */
+const DEVELOPMENT_APP_ORIGINS = ['http://127.0.0.1:5173', 'http://localhost:5173'];
+
+/** Default skill storage: `<repo>/data/skills`, which is gitignored. */
+const DEFAULT_SKILL_STORAGE_DIRECTORY = fileURLToPath(
+  new URL('../../../../data/skills', import.meta.url),
+);
 
 /** The process environment, or a stand-in object in tests. */
 export type EnvironmentVariables = Record<string, string | undefined>;
@@ -32,12 +43,35 @@ const PostgresUrlSchema = z.url({
   error: 'Must be a postgres:// connection URL',
 });
 
-const ApiEnvironmentSchema = z.object({
-  NODE_ENV: z.enum(NODE_ENVIRONMENTS).default('development'),
-  API_PORT: z.coerce.number().int().min(1).max(MAX_TCP_PORT).default(DEFAULT_API_PORT),
-  LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
-  DATABASE_URL: PostgresUrlSchema,
-});
+/** A bare origin such as `https://dashboard.lab.example`: scheme, host and optional port only. */
+const OriginSchema = z
+  .url({ protocol: /^https?$/ })
+  .refine((value) => new URL(value).origin === value.replace(/\/$/, ''), {
+    message: 'Must be an origin with no path, e.g. https://dashboard.example',
+  })
+  .transform((value) => new URL(value).origin);
+
+const ApiEnvironmentSchema = z
+  .object({
+    NODE_ENV: z.enum(NODE_ENVIRONMENTS).default('development'),
+    API_PORT: z.coerce.number().int().min(1).max(MAX_TCP_PORT).default(DEFAULT_API_PORT),
+    LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+    DATABASE_URL: PostgresUrlSchema,
+    APP_ORIGINS: z
+      .string()
+      .optional()
+      .transform((value) => value?.split(',').map((origin) => origin.trim()))
+      .pipe(z.array(OriginSchema).min(1).optional()),
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(MAX_TRUSTED_PROXY_HOPS).default(0),
+    SKILL_STORAGE_DIR: z
+      .string()
+      .refine(isAbsolute, 'Must be an absolute path')
+      .default(DEFAULT_SKILL_STORAGE_DIRECTORY),
+  })
+  .refine((environment) => environment.NODE_ENV !== 'production' || environment.APP_ORIGINS, {
+    message: 'Required in production: the origin(s) the web app is served from',
+    path: ['APP_ORIGINS'],
+  });
 
 const MigrationEnvironmentSchema = z.object({
   NODE_ENV: z.enum(NODE_ENVIRONMENTS).default('development'),
@@ -51,6 +85,14 @@ export interface ApiConfig {
   logLevel: LogLevel;
   /** Connection URL for the restricted `agent_dashboard_app` role. */
   databaseUrl: string;
+  /** Browser origins allowed to make state-changing requests (CSRF protection). */
+  appOrigins: string[];
+  /** Number of reverse proxies in front of the API whose `X-Forwarded-For` to trust. */
+  trustProxyHops: number;
+  /** Absolute directory where published skill versions are stored. */
+  skillStorageDirectory: string;
+  /** Whether cookies are marked `Secure` (production, served over HTTPS). */
+  isSecureCookie: boolean;
 }
 
 /** Settings the migration and seed CLI needs. */
@@ -116,6 +158,10 @@ export function loadApiConfig(environmentVariables: EnvironmentVariables): ApiCo
     apiPort: environment.API_PORT,
     logLevel: environment.LOG_LEVEL,
     databaseUrl: environment.DATABASE_URL,
+    appOrigins: environment.APP_ORIGINS ?? DEVELOPMENT_APP_ORIGINS,
+    trustProxyHops: environment.TRUST_PROXY_HOPS,
+    skillStorageDirectory: environment.SKILL_STORAGE_DIR,
+    isSecureCookie: environment.NODE_ENV === 'production',
   };
 }
 

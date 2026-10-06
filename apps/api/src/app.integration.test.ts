@@ -6,11 +6,10 @@ import { HealthResponseSchema } from '@agent-dashboard/shared';
 import request from 'supertest';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createTestDatabaseClients } from '../test/database-test-helpers.js';
-import { createApp } from './app.js';
-import { createLogger } from './logger.js';
+import { createTestApp } from '../test/test-app.js';
 
 const { ownerDatabase, appDatabase } = createTestDatabaseClients();
-const app = createApp({ database: appDatabase, logger: createLogger('silent') });
+const app = createTestApp(appDatabase);
 
 afterAll(async () => {
   await Promise.all([ownerDatabase.destroy(), appDatabase.destroy()]);

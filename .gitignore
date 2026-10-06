@@ -10,3 +10,6 @@ coverage/
 
 .DS_Store
 *.log
+
+# Published skill versions (SKILL_STORAGE_DIR default)
+data/

@@ -35,7 +35,15 @@ function startServer(): void {
   const apiConfig = loadApiConfig(process.env);
   const logger = createLogger(apiConfig.logLevel);
   const database = createDatabaseClient(buildKnexConnectionConfig(apiConfig.databaseUrl));
-  const app = createApp({ database, logger });
+  const app = createApp({
+    database,
+    logger,
+    settings: {
+      appOrigins: apiConfig.appOrigins,
+      trustProxyHops: apiConfig.trustProxyHops,
+      isSecureCookie: apiConfig.isSecureCookie,
+    },
+  });
 
   const server = app.listen(apiConfig.apiPort, () => {
     logger.info(

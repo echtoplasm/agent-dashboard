@@ -209,3 +209,59 @@ throwaway hash, so response time doesn't reveal which usernames exist.
 The first admin is created with `npm run users:create-admin`. No default
 credentials are ever seeded. The command runs as the app role and its
 `user.created` audit entry has no actor.
+
+### D-017: Server-side sessions with hashed tokens
+
+Sessions are rows in `sessions`, not signed or encrypted cookies (JWTs),
+because a server-side session can be revoked immediately. Deactivating a
+user, resetting their password, or the user changing their own password ends
+their sessions on the spot. The cookie holds 32 random bytes; the table stores
+only their SHA-256 hash, so a leaked table or backup contains no usable
+sessions.
+
+- The cookie is `HttpOnly` and `SameSite=Strict` with path `/`. In
+  production it is also `Secure` and named with the `__Host-` prefix, so
+  browsers refuse it unless it was set over HTTPS without a `Domain`.
+- A session expires after 8 hours idle or 7 days after sign-in, whichever
+  comes first. `last_seen_at` is written at most once a minute.
+- Login failures return the same message whether the username is unknown,
+  the account is inactive or the password is wrong. Unknown usernames still
+  run a scrypt verification so response timing matches. The audit log records
+  the actual reason, and only operators and admins can read it.
+- Changing your own password keeps your current session and ends all
+  others.
+
+The whole thing is about 300 lines without `express-session`. There's no
+session store adapter and no serialization layer, and the expiry rules are
+visible in one service.
+
+### D-018: CSRF protection by origin check and JSON-only bodies
+
+On top of `SameSite=Strict`, every state-changing request must carry an
+`Origin` (or failing that a `Referer`) from `APP_ORIGINS`, and any request
+body must be `application/json`. A cross-site HTML form can send neither, and
+a cross-site `fetch` with a JSON body triggers a CORS preflight, which the
+API never approves. No CSRF tokens are needed. `APP_ORIGINS` is required in
+production and defaults to the Vite dev server origins in development.
+
+### D-019: Rate limiting and role permissions
+
+`express-rate-limit` keeps per-IP counters in memory. The whole API allows
+300 requests per minute per IP. Login allows 10 failed attempts per IP per
+15 minutes; successful logins don't count toward that limit. In-memory
+counters are fine for a single API instance and would need a shared store if
+the API is scaled out. `TRUST_PROXY_HOPS` must match the number of reverse
+proxies, or every request will appear to come from the proxy's IP.
+
+Roles are checked per route with `requireRole(ROLE_GROUPS.X)`:
+
+| Action | viewer | operator | admin |
+| --- | --- | --- | --- |
+| View agents, skills, profiles, providers | ✓ | ✓ | ✓ |
+| Read the audit log | | ✓ | ✓ |
+| Manage agents, skills, versions, assignments | | ✓ | ✓ |
+| Manage users, providers, sandbox profiles | | | ✓ |
+
+Every route under `/api` except `/api/health` and `/api/auth/login` requires
+a session. Unknown paths under `/api` also return 401 to signed-out clients,
+so the route list is not exposed.

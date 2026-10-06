@@ -50,6 +50,8 @@ export interface SessionsRepository {
   deleteSession(tokenHash: string): Promise<void>;
   /** Signs a user out everywhere. */
   deleteSessionsForUser(userId: string): Promise<void>;
+  /** Signs a user out everywhere except the given session. */
+  deleteOtherSessionsForUser(userId: string, keptTokenHash: string): Promise<void>;
   /** Removes expired rows and returns how many were deleted. */
   deleteExpiredSessions(now: Date): Promise<number>;
 }
@@ -113,6 +115,13 @@ export function createSessionsRepository(database: DatabaseExecutor): SessionsRe
 
     async deleteSessionsForUser(userId) {
       await database('sessions').where({ user_id: userId }).delete();
+    },
+
+    async deleteOtherSessionsForUser(userId, keptTokenHash) {
+      await database('sessions')
+        .where({ user_id: userId })
+        .whereNot({ token_hash: keptTokenHash })
+        .delete();
     },
 
     async deleteExpiredSessions(now) {

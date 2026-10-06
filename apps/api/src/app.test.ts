@@ -15,7 +15,11 @@ const UNREACHABLE_DATABASE_URL = 'postgres://nobody:nothing@127.0.0.1:1/none';
 const unreachableDatabase = createDatabaseClient(
   buildKnexConnectionConfig(UNREACHABLE_DATABASE_URL),
 );
-const app = createApp({ database: unreachableDatabase, logger: createLogger('silent') });
+const app = createApp({
+  database: unreachableDatabase,
+  logger: createLogger('silent'),
+  settings: { appOrigins: ['http://dashboard.test'], trustProxyHops: 0, isSecureCookie: false },
+});
 
 afterAll(async () => {
   await unreachableDatabase.destroy();
@@ -40,8 +44,8 @@ describe('createApp', () => {
     expect(response.headers['x-powered-by']).toBeUndefined();
   });
 
-  it('returns JSON 404s for unknown API routes', async () => {
-    const response = await request(app).get('/api/nope');
+  it('returns JSON 404s for unknown routes outside the API', async () => {
+    const response = await request(app).get('/nope');
 
     expect(response.status).toBe(404);
     expect((response.body as ErrorResponseBody).error.code).toBe('not_found');
