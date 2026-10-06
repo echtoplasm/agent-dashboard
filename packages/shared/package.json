@@ -1,0 +1,22 @@
+{
+  "name": "@agent-dashboard/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zod schemas and types shared by the API and web app.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
+}

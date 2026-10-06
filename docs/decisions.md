@@ -19,3 +19,18 @@ That rules out TypeScript `enum`, so fixed value sets are `as const` arrays or
 objects in `packages/shared`. Zod schemas build directly on them
 (`z.enum(RUN_STATUSES)`), so the type, the runtime validator and the list of
 allowed values come from one definition.
+
+### D-003: Shared package resolved from source via a `source` export condition
+
+`@agent-dashboard/shared` exports `./src/index.ts` under a custom `source`
+condition and `./dist` otherwise. TypeScript (`customConditions`), Vite, Vitest
+and `tsx` all opt into `source`, so development and tests never need a build
+step for the shared package. Production builds use the compiled `dist` output.
+
+### D-004: Permissions manifests are strict, versioned and default-deny
+
+`SkillPermissionsManifestSchema` rejects unknown keys and fills every omitted
+section with the most restrictive value. A typo like `allowedHost` fails
+validation instead of silently granting nothing (or, worse, being read by a
+future enforcement layer). `manifestVersion` lets the format evolve without
+guessing which shape a stored manifest uses.
