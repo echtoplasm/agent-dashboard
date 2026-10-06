@@ -26,6 +26,7 @@
   "dependencies": {
     "@agent-dashboard/shared": "*",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "knex": "^3.3.0",
     "pg": "^8.23.1",

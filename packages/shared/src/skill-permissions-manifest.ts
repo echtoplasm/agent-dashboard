@@ -33,12 +33,23 @@ function isWorkspaceRelativePath(path: string): boolean {
   return path.length > 0 && !isAbsolute && !hasParentSegment;
 }
 
+/** A lowercase hostname such as `registry.npmjs.org`, or a wildcard like `*.github.com`. */
+export const HostnameSchema = z.string().regex(HOSTNAME_PATTERN, 'Must be a lowercase hostname');
+
+/** A path relative to the sandbox workspace that cannot escape it. */
+export const WorkspacePathSchema = z.string().refine(isWorkspaceRelativePath, {
+  message: 'Must be a relative path inside the workspace with no ".." segments',
+});
+
+/** A bare command name such as `git`, never a path. */
+export const CommandNameSchema = z
+  .string()
+  .regex(COMMAND_NAME_PATTERN, 'Must be a bare command name, not a path');
+
 const NetworkPermissionsSchema = z
   .strictObject({
     isAllowed: z.boolean().default(false),
-    allowedHosts: z
-      .array(z.string().regex(HOSTNAME_PATTERN, 'Must be a lowercase hostname'))
-      .default([]),
+    allowedHosts: z.array(HostnameSchema).default([]),
   })
   .refine((network) => network.isAllowed || network.allowedHosts.length === 0, {
     message: 'allowedHosts requires isAllowed to be true',
@@ -46,19 +57,11 @@ const NetworkPermissionsSchema = z
   });
 
 const FilesystemPermissionsSchema = z.strictObject({
-  writablePaths: z
-    .array(
-      z.string().refine(isWorkspaceRelativePath, {
-        message: 'Must be a relative path inside the workspace with no ".." segments',
-      }),
-    )
-    .default([]),
+  writablePaths: z.array(WorkspacePathSchema).default([]),
 });
 
 const CommandPermissionsSchema = z.strictObject({
-  allowedCommands: z
-    .array(z.string().regex(COMMAND_NAME_PATTERN, 'Must be a bare command name, not a path'))
-    .default([]),
+  allowedCommands: z.array(CommandNameSchema).default([]),
 });
 
 /**
