@@ -1,0 +1,35 @@
+{
+  "name": "@agent-dashboard/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Express + Knex backend for Agent Dashboard.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --conditions=source --env-file-if-exists=../../.env src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "db:migrate": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts migrate:latest",
+    "db:rollback": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts migrate:rollback",
+    "db:make-migration": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts migrate:make",
+    "db:seed": "tsx --conditions=source --env-file-if-exists=../../.env src/db/db-cli.ts seed:run"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.1",
+    "tsx": "^4.23.15"
+  },
+  "dependencies": {
+    "@agent-dashboard/shared": "*",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "knex": "^3.3.0",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "zod": "^4.6.5"
+  }
+}
