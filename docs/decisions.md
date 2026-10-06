@@ -58,3 +58,34 @@ that creates it and new tables start with no app access.
 
 The Compose port is bound to `127.0.0.1` so the database is not reachable from
 the LAN.
+
+### D-006: Migration CLI wraps Knex's programmatic API
+
+`npm run db:*` calls `apps/api/src/db/db-cli.ts` (run with `tsx`) rather than
+the stock `knex` binary. The stock CLI's TypeScript and ESM loading depends on
+which loader is installed and on `npm_package_type`. Our wrapper uses the same
+validated config and `tsx` loader as the API, and it always connects as the
+owner role. `knexfile.ts` still has a default export so the stock CLI can be
+used for debugging.
+
+### D-007: int8 columns are parsed as JavaScript numbers
+
+`pg` returns `bigint` (OID 20) as a string to avoid precision loss above
+`Number.MAX_SAFE_INTEGER` (about 9 × 10^15). We register a parser that
+converts int8 to `number` and throws `UnsafeIntegerError` if a value doesn't
+fit, so precision is never lost silently.
+
+This is safe at our scale. Money is stored as integer micro-USD, so the safe
+limit is about $9 billion per value. Token counts and `bigserial` ids
+(`run_events`, `audit_log`) won't come anywhere near 9 × 10^15 for a homelab.
+In exchange, repositories and the API deal in plain numbers instead of strings
+or `BigInt`, which also serialize cleanly to JSON. This also covers
+`count(*)`, which Postgres returns as int8.
+
+### D-008: Money is stored as integer micro-USD
+
+Costs use `bigint` columns holding millionths of a dollar
+(`cost_micro_usd`). Floating-point types can't represent amounts like $0.1
+exactly, and `numeric` would come back from `pg` as a string. Provider prices
+per token are quoted at fractions of a cent, so micro-dollar resolution keeps
+per-event costs exact enough to sum.

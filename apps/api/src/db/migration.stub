@@ -1,0 +1,13 @@
+/**
+ * TODO: Describe what this migration changes and why.
+ *
+ * Remember: grant the app role (APP_DATABASE_ROLE) only the privileges it
+ * needs on any new table, and never TRUNCATE.
+ */
+import type { Knex } from 'knex';
+
+/** Applies the change. */
+export async function up(knex: Knex): Promise<void> {}
+
+/** Reverts the change. */
+export async function down(knex: Knex): Promise<void> {}
