@@ -89,3 +89,39 @@ Costs use `bigint` columns holding millionths of a dollar
 exactly, and `numeric` would come back from `pg` as a string. Provider prices
 per token are quoted at fractions of a cent, so micro-dollar resolution keeps
 per-event costs exact enough to sum.
+
+### D-009: Schema conventions
+
+- **Ids** are `uuid` defaulting to Postgres 18's built-in `uuidv7()`. The ids
+  are ordered by creation time, which keeps B-tree inserts cheap and makes ids
+  roughly sortable. Log tables (`run_events`, `audit_log`) use
+  `bigint GENERATED ALWAYS AS IDENTITY` instead, which needs no separate
+  sequence grant for the app role.
+- **Fixed value sets** (run status, user role) are `text` columns with
+  `CHECK ... IN (...)` constraints rather than native Postgres enums, which
+  are awkward to change in migrations. Each migration writes out its own copy
+  of the values so it keeps meaning the same thing if `packages/shared`
+  changes. An integration test fails if the database values and the shared
+  lists drift apart. Provider slugs only have a format check, so adding a
+  provider needs no schema change.
+- **Soft deletes**: agents, skills and sandbox profiles have `archived_at`
+  and are never deleted, because runs and assignments reference them. Their
+  names and slugs are unique only among active rows (partial unique indexes
+  `WHERE archived_at IS NULL`), so a name can be reused after archiving.
+- **Immutability**: `skill_versions`, `run_events` and `audit_log` have
+  `reject_modification()` triggers for UPDATE and TRUNCATE, and also for
+  DELETE on `audit_log`. These fire for every role. The app role also lacks
+  the grants for those operations (D-005).
+- **An agent can hold at most one version of each skill.**
+  `agent_skill_assignments` stores `skill_id` next to `skill_version_id`
+  with a two-column foreign key to `skill_versions (id, skill_id)`, so the
+  uniqueness rule cannot be undermined by a mismatched pair.
+- **Sandbox profiles mirror the permissions manifest**:
+  `is_network_allowed`, `allowed_network_hosts`, `writable_paths` and
+  `allowed_commands` line up with the manifest's sections, so checking that a
+  skill's manifest fits within a profile is a field-by-field comparison.
+- **Migration helpers are frozen.** Migrations that already ran import
+  `migration-helpers.ts`, so a helper's behaviour must never change. Add a
+  new helper instead.
+- **Avoid `?` in SQL passed through Knex**, including regexes in CHECK
+  constraints, because Knex treats it as a placeholder. Write `{0,1}` instead.

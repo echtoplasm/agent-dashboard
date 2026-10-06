@@ -29,7 +29,7 @@ export default defineConfig({
         test: {
           name: 'integration',
           include: [INTEGRATION_TEST_PATTERN],
-          setupFiles: ['test/load-test-env.ts'],
+          setupFiles: ['test/integration-setup.ts'],
           fileParallelism: false,
           testTimeout: 15_000,
           hookTimeout: 30_000,
