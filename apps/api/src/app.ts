@@ -39,11 +39,21 @@ import { createProvidersRouter } from './modules/providers/providers.routes.js';
 import { createProvidersService } from './modules/providers/providers.service.js';
 import { createSandboxProfilesRouter } from './modules/sandbox-profiles/sandbox-profiles.routes.js';
 import { createSandboxProfilesService } from './modules/sandbox-profiles/sandbox-profiles.service.js';
+import { createSkillStorage } from './modules/skills/skill-storage.js';
+import { createSkillVersionsRouter, createSkillsRouter } from './modules/skills/skills.routes.js';
+import { createSkillsService } from './modules/skills/skills.service.js';
 import { createUsersRouter } from './modules/users/users.routes.js';
 import { createUsersService } from './modules/users/users.service.js';
 
 /** Largest JSON request body accepted by most routes. */
 const MAX_JSON_BODY_SIZE = '100kb';
+
+/**
+ * Largest body for publishing a skill version. Files may total 1 MiB of
+ * UTF-8 (see `SKILL_FILE_LIMITS`), and JSON escaping can inflate that.
+ */
+const MAX_SKILL_PUBLISH_BODY_SIZE = '4mb';
+const SKILL_PUBLISH_PATH = '/api/skills/:id/versions';
 
 /** Settings that shape HTTP behaviour, usually taken from `ApiConfig`. */
 export interface AppSettings {
@@ -53,6 +63,8 @@ export interface AppSettings {
   trustProxyHops: number;
   /** Mark cookies Secure and use the `__Host-` prefix (production). */
   isSecureCookie: boolean;
+  /** Absolute directory for published skill files. */
+  skillStorageDirectory: string;
   /** Overrides for the default rate limits, e.g. to relax them in tests. */
   rateLimits?: RateLimitSettings;
 }
@@ -87,6 +99,10 @@ export function createApp(dependencies: AppDependencies): Express {
   const providersService = createProvidersService(dataAccess);
   const sandboxProfilesService = createSandboxProfilesService(dataAccess);
   const agentsService = createAgentsService(dataAccess);
+  const skillsService = createSkillsService({
+    dataAccess,
+    skillStorage: createSkillStorage(settings.skillStorageDirectory),
+  });
 
   const app = express();
   app.set('trust proxy', settings.trustProxyHops);
@@ -95,6 +111,9 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(createRequestLogger(logger));
   app.use(createApiRateLimiter(rateLimits));
   app.use(createCrossSiteRequestProtection(settings.appOrigins));
+  // The larger parser runs first for skill uploads; the general one then skips
+  // the already-parsed body.
+  app.post(SKILL_PUBLISH_PATH, express.json({ limit: MAX_SKILL_PUBLISH_BODY_SIZE }));
   app.use(express.json({ limit: MAX_JSON_BODY_SIZE }));
   app.use(createSessionMiddleware(authService, cookieSettings));
 
@@ -115,6 +134,8 @@ export function createApp(dependencies: AppDependencies): Express {
   protectedRoutes.use('/providers', createProvidersRouter(providersService));
   protectedRoutes.use('/sandbox-profiles', createSandboxProfilesRouter(sandboxProfilesService));
   protectedRoutes.use('/agents', createAgentsRouter(agentsService));
+  protectedRoutes.use('/skills', createSkillsRouter(skillsService));
+  protectedRoutes.use('/skill-versions', createSkillVersionsRouter(skillsService));
   app.use('/api', protectedRoutes);
 
   app.use(createNotFoundHandler());

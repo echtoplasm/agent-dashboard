@@ -18,7 +18,12 @@ const unreachableDatabase = createDatabaseClient(
 const app = createApp({
   database: unreachableDatabase,
   logger: createLogger('silent'),
-  settings: { appOrigins: ['http://dashboard.test'], trustProxyHops: 0, isSecureCookie: false },
+  settings: {
+    appOrigins: ['http://dashboard.test'],
+    trustProxyHops: 0,
+    isSecureCookie: false,
+    skillStorageDirectory: '/nonexistent/skills',
+  },
 });
 
 afterAll(async () => {

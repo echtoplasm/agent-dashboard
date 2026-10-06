@@ -42,6 +42,7 @@ function startServer(): void {
       appOrigins: apiConfig.appOrigins,
       trustProxyHops: apiConfig.trustProxyHops,
       isSecureCookie: apiConfig.isSecureCookie,
+      skillStorageDirectory: apiConfig.skillStorageDirectory,
     },
   });
 

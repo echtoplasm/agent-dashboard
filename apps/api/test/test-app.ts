@@ -3,6 +3,9 @@
  * and get a signed-in Supertest agent.
  */
 import { randomUUID } from 'node:crypto';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Express } from 'express';
 import type { Knex } from 'knex';
 import request from 'supertest';
@@ -19,6 +22,13 @@ export const TEST_APP_ORIGIN = 'http://dashboard.test';
 
 /** Password given to every user created by `createTestUser`. */
 export const TEST_USER_PASSWORD = 'test-password-long-enough';
+
+/**
+ * A throwaway skill storage directory per test file. It is left under the
+ * OS temp directory: published files are read-only, so deleting them needs
+ * the storage module's own removal routine.
+ */
+const TEST_SKILL_STORAGE_DIRECTORY = mkdtempSync(join(tmpdir(), 'agent-dashboard-skills-'));
 
 /** Rate limits high enough that ordinary tests never hit them. */
 const RELAXED_RATE_LIMITS = { apiRequestsPerMinute: 10_000, failedLoginsPerWindow: 10_000 };
@@ -38,6 +48,7 @@ export function createTestApp(database: Knex, overrides: Partial<AppSettings> = 
       appOrigins: [TEST_APP_ORIGIN],
       trustProxyHops: 0,
       isSecureCookie: false,
+      skillStorageDirectory: TEST_SKILL_STORAGE_DIRECTORY,
       rateLimits: RELAXED_RATE_LIMITS,
       ...overrides,
     },

@@ -17,6 +17,10 @@ import { createProvidersRepository } from '../modules/providers/providers.reposi
 import type { ProvidersRepository } from '../modules/providers/providers.repository.js';
 import { createSandboxProfilesRepository } from '../modules/sandbox-profiles/sandbox-profiles.repository.js';
 import type { SandboxProfilesRepository } from '../modules/sandbox-profiles/sandbox-profiles.repository.js';
+import { createSkillVersionsRepository } from '../modules/skills/skill-versions.repository.js';
+import type { SkillVersionsRepository } from '../modules/skills/skill-versions.repository.js';
+import { createSkillsRepository } from '../modules/skills/skills.repository.js';
+import type { SkillsRepository } from '../modules/skills/skills.repository.js';
 import { createUsersRepository } from '../modules/users/users.repository.js';
 import type { UsersRepository } from '../modules/users/users.repository.js';
 import type { DatabaseExecutor } from './database-executor.js';
@@ -29,6 +33,8 @@ export interface Repositories {
   providers: ProvidersRepository;
   sandboxProfiles: SandboxProfilesRepository;
   agents: AgentsRepository;
+  skills: SkillsRepository;
+  skillVersions: SkillVersionsRepository;
 }
 
 /** Repository access plus transactions, as services see it. */
@@ -56,6 +62,8 @@ export function createRepositories(database: DatabaseExecutor): Repositories {
     providers: createProvidersRepository(database),
     sandboxProfiles: createSandboxProfilesRepository(database),
     agents: createAgentsRepository(database),
+    skills: createSkillsRepository(database),
+    skillVersions: createSkillVersionsRepository(database),
   };
 }
 

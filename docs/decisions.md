@@ -265,3 +265,36 @@ Roles are checked per route with `requireRole(ROLE_GROUPS.X)`:
 Every route under `/api` except `/api/health` and `/api/auth/login` requires
 a session. Unknown paths under `/api` also return 401 to signed-out clients,
 so the route list is not exposed.
+
+### D-020: Skill versions are files on disk, published atomically and verified on read
+
+Skill files are uploaded as JSON (`[{ path, content }]`, text only, at most 50
+files and 1 MiB total) rather than as an archive. Accepting zip or tar
+uploads would need extraction libraries and opens the door to zip-slip paths
+and decompression bombs; a JSON list is validated field by field with the
+shared Zod schema. Paths may only use `[A-Za-z0-9._-]` segments that don't
+start with a dot, so `..`, absolute paths and hidden files are impossible,
+and the storage layer checks every resolved path again before writing.
+
+A version is stored at `SKILL_STORAGE_DIR/<skillId>/<version>/`. The skill
+id is used instead of the slug because slugs can be reused after a skill is
+archived. Publishing:
+
+1. Writes files to `.staging/<random>/` outside any transaction.
+2. In one transaction, inserts the `skill_versions` row and the audit entry,
+   then renames the staging directory into place. A rename is atomic, so a
+   half-written version is never visible.
+3. If the transaction fails after the rename, deletes the version directory,
+   so the database and disk always agree.
+
+Published files are `0444` and directories `0555`. `content_hash` is the
+SHA-256 over each file's path and content hash, in path order. Reading a
+version recomputes it, and a mismatch is refused with a 500 and logged
+instead of serving tampered instructions to an agent.
+
+Each new version must be higher by semver precedence than every published
+version, so "latest" is unambiguous.
+
+`SKILL.md` must open with frontmatter containing non-empty `name:` and
+`description:` lines. This is a light line-based check that avoids a YAML
+dependency; each provider's exact format is verified in Phase 3.
