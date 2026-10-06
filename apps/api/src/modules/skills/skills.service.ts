@@ -4,6 +4,8 @@
  * - A skill's slug is permanent; its name, description and supported
  *   providers can change. Archived skills are read-only and accept no new
  *   versions.
+ * - A provider cannot be removed from a skill while an active agent on that
+ *   provider has the skill assigned, and an assigned skill cannot be archived.
  * - Versions are immutable. A new version must have a higher semver than
  *   every version already published.
  * - Publishing writes files to staging first, then inserts the database row
@@ -121,6 +123,40 @@ async function assertProvidersExist(
 }
 
 /**
+ * Refuses to drop a provider that active agents with this skill depend on.
+ *
+ * @throws {ConflictError} Naming the affected agents.
+ */
+async function assertProviderRemovalSafe(
+  repositories: Repositories,
+  skillId: string,
+  newProviderIds: readonly string[],
+): Promise<void> {
+  const assignedAgents = await repositories.assignments.listActiveAgentsAssignedSkill(skillId);
+  const strandedAgentNames = assignedAgents
+    .filter((agent) => !newProviderIds.includes(agent.providerId))
+    .map((agent) => agent.agentName);
+  if (strandedAgentNames.length > 0) {
+    throw new ConflictError(
+      `Agents using this skill need the removed provider: ${strandedAgentNames.join(', ')}`,
+    );
+  }
+}
+
+/**
+ * Refuses to archive a skill that active agents still have assigned.
+ *
+ * @throws {ConflictError} Naming the affected agents.
+ */
+async function assertSkillUnassigned(repositories: Repositories, skillId: string): Promise<void> {
+  const assignedAgents = await repositories.assignments.listActiveAgentsAssignedSkill(skillId);
+  if (assignedAgents.length > 0) {
+    const agentNames = assignedAgents.map((agent) => agent.agentName).join(', ');
+    throw new ConflictError(`Unassign this skill from these agents first: ${agentNames}`);
+  }
+}
+
+/**
  * Checks that a new version is higher than every published version.
  *
  * @throws {ConflictError} If it is not.
@@ -182,6 +218,7 @@ export function createSkillsService(dependencies: SkillsServiceDependencies): Sk
         });
         if (changes.supportedProviderIds !== undefined) {
           await assertProvidersExist(repositories, changes.supportedProviderIds);
+          await assertProviderRemovalSafe(repositories, skillId, changes.supportedProviderIds);
           await repositories.skills.replaceSupportedProviders(
             skillId,
             changes.supportedProviderIds,
@@ -200,6 +237,7 @@ export function createSkillsService(dependencies: SkillsServiceDependencies): Sk
     async archiveSkill(skillId, context) {
       return dataAccess.runInTransaction(async (repositories) => {
         await findEditableSkill(repositories, skillId);
+        await assertSkillUnassigned(repositories, skillId);
         await repositories.skills.archiveSkill(skillId);
         await repositories.audit.insertAuditEntry(context, {
           action: 'skill.archived',

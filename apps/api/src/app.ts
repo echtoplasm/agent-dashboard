@@ -27,6 +27,8 @@ import type { RateLimitSettings } from './middleware/rate-limiters.js';
 import { createRequestLogger } from './middleware/request-logger.js';
 import { createAgentsRouter } from './modules/agents/agents.routes.js';
 import { createAgentsService } from './modules/agents/agents.service.js';
+import { createAssignmentsRouter } from './modules/assignments/assignments.routes.js';
+import { createAssignmentsService } from './modules/assignments/assignments.service.js';
 import { createAuditRouter } from './modules/audit/audit.routes.js';
 import { createAuditService } from './modules/audit/audit.service.js';
 import { createSessionMiddleware, requireAuthentication } from './modules/auth/auth.middleware.js';
@@ -99,6 +101,7 @@ export function createApp(dependencies: AppDependencies): Express {
   const providersService = createProvidersService(dataAccess);
   const sandboxProfilesService = createSandboxProfilesService(dataAccess);
   const agentsService = createAgentsService(dataAccess);
+  const assignmentsService = createAssignmentsService(dataAccess);
   const skillsService = createSkillsService({
     dataAccess,
     skillStorage: createSkillStorage(settings.skillStorageDirectory),
@@ -134,6 +137,7 @@ export function createApp(dependencies: AppDependencies): Express {
   protectedRoutes.use('/providers', createProvidersRouter(providersService));
   protectedRoutes.use('/sandbox-profiles', createSandboxProfilesRouter(sandboxProfilesService));
   protectedRoutes.use('/agents', createAgentsRouter(agentsService));
+  protectedRoutes.use('/agents', createAssignmentsRouter(assignmentsService));
   protectedRoutes.use('/skills', createSkillsRouter(skillsService));
   protectedRoutes.use('/skill-versions', createSkillVersionsRouter(skillsService));
   app.use('/api', protectedRoutes);

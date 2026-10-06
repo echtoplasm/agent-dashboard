@@ -6,7 +6,7 @@
  * - Archived profiles are read-only, and a profile still used by an active
  *   agent cannot be archived.
  * - Narrowing a profile must not strand skills already assigned to agents
- *   using it. That check is added together with assignments.
+ *   using it: every such agent's loadout is re-checked against the new limits.
  */
 import type {
   CreateSandboxProfileRequest,
@@ -17,6 +17,7 @@ import type { DataAccess, Repositories } from '../../db/data-access.js';
 import { ConflictError, NotFoundError, ValidationError } from '../../errors/app-errors.js';
 import type { AuditContext } from '../audit/audit.types.js';
 import { applyChanges } from '../../utils/apply-changes.js';
+import { assertLoadoutFits } from '../assignments/loadout-rules.js';
 import type { SandboxProfileFields } from './sandbox-profiles.types.js';
 
 /** Sandbox profile operations. */
@@ -125,6 +126,9 @@ export function createSandboxProfilesService(dataAccess: DataAccess): SandboxPro
         const currentProfile = await findEditableProfile(repositories, profileId);
         const mergedFields = applyChanges(toProfileFields(currentProfile), changes);
         assertNetworkSettingsConsistent(mergedFields);
+        for (const agent of await repositories.agents.listActiveAgentsUsingProfile(profileId)) {
+          await assertLoadoutFits(repositories, agent, mergedFields);
+        }
 
         const updatedProfile = await repositories.sandboxProfiles.updateSandboxProfile(
           profileId,

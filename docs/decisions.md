@@ -298,3 +298,27 @@ version, so "latest" is unambiguous.
 `SKILL.md` must open with frontmatter containing non-empty `name:` and
 `description:` lines. This is a light line-based check that avoids a YAML
 dependency; each provider's exact format is verified in Phase 3.
+
+### D-021: Loadout rules are enforced at assignment time and on every related change
+
+An agent's loadout must always satisfy two rules: every assigned skill
+supports the agent's provider, and every assigned version's permissions
+manifest fits within the agent's sandbox profile
+(`findPermissionCeilingViolations`). Assigning a skill that breaks either
+rule returns 409, with one field problem per excess permission.
+
+Checking only at assignment time would leave gaps, so the same rules run
+whenever another change could break an existing loadout:
+
+| Change | Check |
+| --- | --- |
+| Agent's provider or sandbox profile changes | the whole loadout against the new pair |
+| Sandbox profile is edited | every active agent using it, against the new limits |
+| A provider is removed from a skill | no active agent on that provider has it assigned |
+| A skill is archived | no active agent has it assigned |
+
+Widening a profile is always allowed. The checks run inside the same
+transaction as the change, so they cannot race with a concurrent
+assignment. Runtime enforcement inside the sandbox is still planned for
+Phase 4. These checks keep the stored configuration valid; they don't
+replace the sandbox enforcing it.

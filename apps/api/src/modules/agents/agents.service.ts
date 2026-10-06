@@ -6,11 +6,14 @@
  *   editing the description of an agent whose provider was later disabled
  *   still works.
  * - Archived agents are read-only.
+ * - Changing the provider or sandbox profile must keep every assigned skill
+ *   valid (see `loadout-rules.ts`).
  */
 import type { Agent, CreateAgentRequest, UpdateAgentRequest } from '@agent-dashboard/shared';
 import type { DataAccess, Repositories } from '../../db/data-access.js';
 import { ConflictError, NotFoundError, ValidationError } from '../../errors/app-errors.js';
 import { applyChanges } from '../../utils/apply-changes.js';
+import { assertLoadoutFits } from '../assignments/loadout-rules.js';
 import type { AuditContext } from '../audit/audit.types.js';
 import type { AgentFields } from './agents.types.js';
 
@@ -79,6 +82,29 @@ async function findEditableAgent(repositories: Repositories, agentId: string): P
   return agent;
 }
 
+/**
+ * Re-checks an agent's assigned skills against a new provider or profile.
+ *
+ * @throws {ConflictError} If any assigned skill would no longer fit.
+ */
+async function assertLoadoutFitsNewSettings(
+  repositories: Repositories,
+  agentId: string,
+  fields: AgentFields,
+): Promise<void> {
+  const profile = await repositories.sandboxProfiles.findSandboxProfileById(
+    fields.sandboxProfileId,
+  );
+  if (profile === undefined) {
+    throw new ValidationError([{ path: 'sandboxProfileId', message: 'Unknown sandbox profile' }]);
+  }
+  await assertLoadoutFits(
+    repositories,
+    { id: agentId, name: fields.name, providerId: fields.providerId },
+    profile,
+  );
+}
+
 function toAgentFields(agent: Agent): AgentFields {
   return {
     name: agent.name,
@@ -134,6 +160,12 @@ export function createAgentsService(dataAccess: DataAccess): AgentsService {
         }
         if (mergedFields.sandboxProfileId !== currentAgent.sandboxProfileId) {
           await assertSandboxProfileUsable(repositories, mergedFields.sandboxProfileId);
+        }
+        const isProviderOrProfileChanged =
+          mergedFields.providerId !== currentAgent.providerId ||
+          mergedFields.sandboxProfileId !== currentAgent.sandboxProfileId;
+        if (isProviderOrProfileChanged) {
+          await assertLoadoutFitsNewSettings(repositories, agentId, mergedFields);
         }
 
         const updatedAgent = await repositories.agents.updateAgent(agentId, mergedFields);
