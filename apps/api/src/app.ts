@@ -33,6 +33,10 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { createHealthRepository } from './modules/health/health.repository.js';
 import { createHealthRouter } from './modules/health/health.routes.js';
 import { createHealthService } from './modules/health/health.service.js';
+import { createProvidersRouter } from './modules/providers/providers.routes.js';
+import { createProvidersService } from './modules/providers/providers.service.js';
+import { createSandboxProfilesRouter } from './modules/sandbox-profiles/sandbox-profiles.routes.js';
+import { createSandboxProfilesService } from './modules/sandbox-profiles/sandbox-profiles.service.js';
 import { createUsersRouter } from './modules/users/users.routes.js';
 import { createUsersService } from './modules/users/users.service.js';
 
@@ -78,6 +82,8 @@ export function createApp(dependencies: AppDependencies): Express {
   });
   const usersService = createUsersService(dataAccess);
   const auditService = createAuditService(dataAccess);
+  const providersService = createProvidersService(dataAccess);
+  const sandboxProfilesService = createSandboxProfilesService(dataAccess);
 
   const app = express();
   app.set('trust proxy', settings.trustProxyHops);
@@ -103,6 +109,8 @@ export function createApp(dependencies: AppDependencies): Express {
   protectedRoutes.use(requireAuthentication);
   protectedRoutes.use('/users', createUsersRouter(usersService));
   protectedRoutes.use('/audit-log', createAuditRouter(auditService));
+  protectedRoutes.use('/providers', createProvidersRouter(providersService));
+  protectedRoutes.use('/sandbox-profiles', createSandboxProfilesRouter(sandboxProfilesService));
   app.use('/api', protectedRoutes);
 
   app.use(createNotFoundHandler());

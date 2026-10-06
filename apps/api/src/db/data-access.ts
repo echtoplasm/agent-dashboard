@@ -11,6 +11,10 @@ import { createSessionsRepository } from '../modules/auth/sessions.repository.js
 import type { SessionsRepository } from '../modules/auth/sessions.repository.js';
 import { createAuditRepository } from '../modules/audit/audit.repository.js';
 import type { AuditRepository } from '../modules/audit/audit.repository.js';
+import { createProvidersRepository } from '../modules/providers/providers.repository.js';
+import type { ProvidersRepository } from '../modules/providers/providers.repository.js';
+import { createSandboxProfilesRepository } from '../modules/sandbox-profiles/sandbox-profiles.repository.js';
+import type { SandboxProfilesRepository } from '../modules/sandbox-profiles/sandbox-profiles.repository.js';
 import { createUsersRepository } from '../modules/users/users.repository.js';
 import type { UsersRepository } from '../modules/users/users.repository.js';
 import type { DatabaseExecutor } from './database-executor.js';
@@ -20,6 +24,8 @@ export interface Repositories {
   users: UsersRepository;
   sessions: SessionsRepository;
   audit: AuditRepository;
+  providers: ProvidersRepository;
+  sandboxProfiles: SandboxProfilesRepository;
 }
 
 /** Repository access plus transactions, as services see it. */
@@ -44,6 +50,8 @@ export function createRepositories(database: DatabaseExecutor): Repositories {
     users: createUsersRepository(database),
     sessions: createSessionsRepository(database),
     audit: createAuditRepository(database),
+    providers: createProvidersRepository(database),
+    sandboxProfiles: createSandboxProfilesRepository(database),
   };
 }
 
