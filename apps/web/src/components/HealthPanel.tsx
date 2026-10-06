@@ -4,8 +4,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactElement } from 'react';
-import { fetchHealthStatus } from './api/health.js';
-import type { HealthCheckResult } from './api/health.js';
+import { fetchHealthStatus } from '../api/health.js';
+import type { HealthCheckResult } from '../api/health.js';
 
 const HEALTH_POLL_INTERVAL_MS = 10_000;
 

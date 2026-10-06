@@ -6,13 +6,7 @@
  */
 import { HealthResponseSchema } from '@agent-dashboard/shared';
 import type { HealthResponse } from '@agent-dashboard/shared';
-
-/**
- * Base URL for API requests. Empty means same origin (the Vite proxy in
- * development). Set `VITE_API_BASE_URL` when the app is served from
- * elsewhere, such as a future Tauri shell.
- */
-const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '';
+import { API_BASE_URL } from './api-client.js';
 
 const HEALTH_PATH = '/api/health';
 

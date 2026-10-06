@@ -3,13 +3,18 @@
 :root {
   --color-background: #f6f7f9;
   --color-surface: #ffffff;
+  --color-surface-muted: #f0f2f5;
   --color-border: #d9dde3;
   --color-text: #1b1f24;
   --color-text-muted: #5b6470;
+  --color-accent: #0b63ce;
+  --color-accent-text: #ffffff;
   --color-good: #1a7f37;
   --color-warn: #9a6700;
   --color-bad: #c42b1c;
   --color-neutral: #5b6470;
+  --color-bad-surface: #fdecea;
+  --radius: 0.5rem;
 
   color-scheme: light dark;
   font-family:
@@ -24,14 +29,22 @@
   :root {
     --color-background: #0f1217;
     --color-surface: #171b22;
+    --color-surface-muted: #1e232c;
     --color-border: #2d333d;
     --color-text: #e6e9ee;
     --color-text-muted: #9aa3ae;
+    --color-accent: #4c9aff;
+    --color-accent-text: #0f1217;
     --color-good: #3fb950;
     --color-warn: #d29922;
     --color-bad: #f85149;
     --color-neutral: #9aa3ae;
+    --color-bad-surface: #3a1d1d;
   }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
@@ -40,17 +53,106 @@ body {
   color: var(--color-text);
 }
 
-.app {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+a {
+  color: var(--color-accent);
 }
+
+h1 {
+  font-size: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+h2 {
+  font-size: 1.125rem;
+  margin: 0 0 0.75rem;
+}
+
+code,
+pre {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.875em;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+/* --- Shell --------------------------------------------------------------- */
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.app-title {
+  font-weight: 700;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.nav-link {
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.nav-link:hover,
+.nav-link--active {
+  color: var(--color-text);
+  background: var(--color-surface-muted);
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-main {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+.page-status {
+  color: var(--color-text-muted);
+  padding: 1rem;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.page-header h1 {
+  margin: 0;
+}
+
+/* --- Panels and details -------------------------------------------------- */
 
 .panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   padding: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .panel-header {
@@ -58,19 +160,215 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .panel-header h2 {
   margin: 0;
-  font-size: 1.125rem;
+}
+
+.details,
+.health-details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.details dt,
+.health-details dt {
+  color: var(--color-text-muted);
+}
+
+.details dd,
+.health-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.health-details {
+  margin: 1rem 0;
+}
+
+.link-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+/* --- Tables -------------------------------------------------------------- */
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+th {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+/* --- Forms ----------------------------------------------------------------- */
+
+.form {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.875rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.field > span {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.field-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.6rem;
+  width: 100%;
+}
+
+textarea {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.875rem;
+  min-height: 8rem;
+  resize: vertical;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.checkbox input {
+  width: auto;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* --- Buttons --------------------------------------------------------------- */
+
+.button,
+.refresh-button {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button--quiet,
+.refresh-button {
+  background: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.button--danger {
+  background: transparent;
+  color: var(--color-bad);
+  border-color: var(--color-bad);
+}
+
+.button--small {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* --- Feedback -------------------------------------------------------------- */
+
+.error-banner,
+.health-error {
+  color: var(--color-bad);
+}
+
+.error-banner {
+  background: var(--color-bad-surface);
+  border: 1px solid var(--color-bad);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.875rem;
+}
+
+.error-banner p {
+  margin: 0;
+}
+
+.error-banner ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.success-message {
+  color: var(--color-good);
+  margin: 0;
 }
 
 .status-badge {
+  display: inline-block;
   border: 1px solid currentColor;
   border-radius: 999px;
-  padding: 0.125rem 0.75rem;
-  font-size: 0.875rem;
+  padding: 0 0.625rem;
+  font-size: 0.8125rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .status-badge--good {
@@ -86,35 +384,45 @@ body {
   color: var(--color-neutral);
 }
 
-.health-details {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.25rem 1rem;
-  margin: 1rem 0;
-}
+/* --- Files ----------------------------------------------------------------- */
 
-.health-details dt {
-  color: var(--color-text-muted);
-}
-
-.health-details dd {
-  margin: 0;
-}
-
-.health-error {
-  color: var(--color-bad);
-}
-
-.refresh-button {
-  font: inherit;
-  padding: 0.375rem 0.875rem;
+.file-block {
   border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
-  background: transparent;
-  color: var(--color-text);
-  cursor: pointer;
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+  overflow: hidden;
 }
 
-.refresh-button:hover {
-  border-color: var(--color-text-muted);
+.file-block h3 {
+  margin: 0;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  background: var(--color-surface-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.file-block pre {
+  margin: 0;
+  padding: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+/* --- Login ----------------------------------------------------------------- */
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.login-form {
+  width: min(24rem, 100%);
+  display: grid;
+  gap: 0.875rem;
+}
+
+.login-form h1 {
+  margin: 0;
 }

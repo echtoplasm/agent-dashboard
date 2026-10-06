@@ -255,12 +255,12 @@ proxies, or every request will appear to come from the proxy's IP.
 
 Roles are checked per route with `requireRole(ROLE_GROUPS.X)`:
 
-| Action | viewer | operator | admin |
-| --- | --- | --- | --- |
-| View agents, skills, profiles, providers | ✓ | ✓ | ✓ |
-| Read the audit log | | ✓ | ✓ |
-| Manage agents, skills, versions, assignments | | ✓ | ✓ |
-| Manage users, providers, sandbox profiles | | | ✓ |
+| Action                                       | viewer | operator | admin |
+| -------------------------------------------- | ------ | -------- | ----- |
+| View agents, skills, profiles, providers     | ✓      | ✓        | ✓     |
+| Read the audit log                           |        | ✓        | ✓     |
+| Manage agents, skills, versions, assignments |        | ✓        | ✓     |
+| Manage users, providers, sandbox profiles    |        |          | ✓     |
 
 Every route under `/api` except `/api/health` and `/api/auth/login` requires
 a session. Unknown paths under `/api` also return 401 to signed-out clients,
@@ -310,12 +310,12 @@ rule returns 409, with one field problem per excess permission.
 Checking only at assignment time would leave gaps, so the same rules run
 whenever another change could break an existing loadout:
 
-| Change | Check |
-| --- | --- |
-| Agent's provider or sandbox profile changes | the whole loadout against the new pair |
-| Sandbox profile is edited | every active agent using it, against the new limits |
-| A provider is removed from a skill | no active agent on that provider has it assigned |
-| A skill is archived | no active agent has it assigned |
+| Change                                      | Check                                               |
+| ------------------------------------------- | --------------------------------------------------- |
+| Agent's provider or sandbox profile changes | the whole loadout against the new pair              |
+| Sandbox profile is edited                   | every active agent using it, against the new limits |
+| A provider is removed from a skill          | no active agent on that provider has it assigned    |
+| A skill is archived                         | no active agent has it assigned                     |
 
 Widening a profile is always allowed. The checks run inside the same
 transaction as the change, so they cannot race with a concurrent
