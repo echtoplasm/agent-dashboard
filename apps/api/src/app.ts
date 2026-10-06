@@ -25,6 +25,8 @@ import {
 } from './middleware/rate-limiters.js';
 import type { RateLimitSettings } from './middleware/rate-limiters.js';
 import { createRequestLogger } from './middleware/request-logger.js';
+import { createAgentsRouter } from './modules/agents/agents.routes.js';
+import { createAgentsService } from './modules/agents/agents.service.js';
 import { createAuditRouter } from './modules/audit/audit.routes.js';
 import { createAuditService } from './modules/audit/audit.service.js';
 import { createSessionMiddleware, requireAuthentication } from './modules/auth/auth.middleware.js';
@@ -84,6 +86,7 @@ export function createApp(dependencies: AppDependencies): Express {
   const auditService = createAuditService(dataAccess);
   const providersService = createProvidersService(dataAccess);
   const sandboxProfilesService = createSandboxProfilesService(dataAccess);
+  const agentsService = createAgentsService(dataAccess);
 
   const app = express();
   app.set('trust proxy', settings.trustProxyHops);
@@ -111,6 +114,7 @@ export function createApp(dependencies: AppDependencies): Express {
   protectedRoutes.use('/audit-log', createAuditRouter(auditService));
   protectedRoutes.use('/providers', createProvidersRouter(providersService));
   protectedRoutes.use('/sandbox-profiles', createSandboxProfilesRouter(sandboxProfilesService));
+  protectedRoutes.use('/agents', createAgentsRouter(agentsService));
   app.use('/api', protectedRoutes);
 
   app.use(createNotFoundHandler());

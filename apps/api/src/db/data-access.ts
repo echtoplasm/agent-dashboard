@@ -7,6 +7,8 @@
  * rolled back together.
  */
 import type { Knex } from 'knex';
+import { createAgentsRepository } from '../modules/agents/agents.repository.js';
+import type { AgentsRepository } from '../modules/agents/agents.repository.js';
 import { createSessionsRepository } from '../modules/auth/sessions.repository.js';
 import type { SessionsRepository } from '../modules/auth/sessions.repository.js';
 import { createAuditRepository } from '../modules/audit/audit.repository.js';
@@ -26,6 +28,7 @@ export interface Repositories {
   audit: AuditRepository;
   providers: ProvidersRepository;
   sandboxProfiles: SandboxProfilesRepository;
+  agents: AgentsRepository;
 }
 
 /** Repository access plus transactions, as services see it. */
@@ -52,6 +55,7 @@ export function createRepositories(database: DatabaseExecutor): Repositories {
     audit: createAuditRepository(database),
     providers: createProvidersRepository(database),
     sandboxProfiles: createSandboxProfilesRepository(database),
+    agents: createAgentsRepository(database),
   };
 }
 
