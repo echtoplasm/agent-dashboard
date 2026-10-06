@@ -1,0 +1,28 @@
+# Local development services. Credentials come from .env (see .env.example).
+name: agent-dashboard
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?set POSTGRES_SUPERUSER_PASSWORD in .env}
+      POSTGRES_DB: postgres
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD in .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD in .env}
+    ports:
+      # Bound to localhost only so the database is never exposed to the LAN.
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-5434}:5432'
+    volumes:
+      # Postgres 18 images keep data under /var/lib/postgresql/<major>/.
+      - postgres-data:/var/lib/postgresql
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready --username postgres --dbname agent_dashboard']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:

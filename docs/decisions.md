@@ -34,3 +34,27 @@ section with the most restrictive value. A typo like `allowedHost` fails
 validation instead of silently granting nothing (or, worse, being read by a
 future enforcement layer). `manifestVersion` lets the format evolve without
 guessing which shape a stored manifest uses.
+
+### D-005: Separate owner and app database roles
+
+Postgres has two application roles, created by
+`infra/postgres/init/01-create-roles-and-databases.sh`:
+
+- `agent_dashboard_owner` owns the databases and the `public` schema and runs
+  migrations and seeds (`MIGRATION_DATABASE_URL`).
+- `agent_dashboard_app` is what the API connects as (`DATABASE_URL`). It can
+  use the schema but not create objects in it, and it only holds the table
+  privileges each migration grants explicitly.
+
+Only a table's owner can `ALTER TABLE ... DISABLE TRIGGER`, and `TRUNCATE`
+skips row-level triggers, so the app role is never the owner and never gets
+`TRUNCATE`. That means a compromised or buggy API cannot bypass the
+immutability triggers on `skill_versions` and `audit_log`. Neither role is a
+superuser; the superuser password is only used to bootstrap the container.
+
+Grants are explicit per table in migrations rather than via
+`ALTER DEFAULT PRIVILEGES`, so each table's access is visible in the migration
+that creates it and new tables start with no app access.
+
+The Compose port is bound to `127.0.0.1` so the database is not reachable from
+the LAN.
