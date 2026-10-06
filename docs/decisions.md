@@ -159,3 +159,21 @@ without any mocking library. `server.ts` is the only file that reads
 `GET /api/health` returns 200 or 503 and reports only up/down per
 dependency. Errors are logged on the server but never included in the
 response, since anyone who can reach the API can call this route.
+
+### D-014: CI pipeline
+
+GitHub Actions runs three independent jobs on every push and pull request:
+
+- **checks**: lint, Prettier check, typecheck, unit and integration tests
+  against a Postgres 18 service container (bootstrapped with the same init
+  script as Docker Compose, so CI exercises the owner/app role split), and a
+  build.
+- **dependency-audit**: `npm audit --audit-level=high`.
+- **secret-scan**: gitleaks over the full git history. The repository is
+  public, so a leaked secret is exposed immediately. No gitleaks license is
+  needed for a personal account.
+
+Third-party actions are pinned to full commit SHAs, with the version in a
+comment, because tags can be moved to point at different code. Dependabot
+opens weekly PRs for both npm packages and action pins. The workflow token
+is limited to `contents: read`, and checkout does not persist credentials.
