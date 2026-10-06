@@ -25,6 +25,8 @@ import {
 } from './middleware/rate-limiters.js';
 import type { RateLimitSettings } from './middleware/rate-limiters.js';
 import { createRequestLogger } from './middleware/request-logger.js';
+import { createAuditRouter } from './modules/audit/audit.routes.js';
+import { createAuditService } from './modules/audit/audit.service.js';
 import { createSessionMiddleware, requireAuthentication } from './modules/auth/auth.middleware.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { createAuthService } from './modules/auth/auth.service.js';
@@ -75,6 +77,7 @@ export function createApp(dependencies: AppDependencies): Express {
     logger,
   });
   const usersService = createUsersService(dataAccess);
+  const auditService = createAuditService(dataAccess);
 
   const app = express();
   app.set('trust proxy', settings.trustProxyHops);
@@ -99,6 +102,7 @@ export function createApp(dependencies: AppDependencies): Express {
   const protectedRoutes = Router();
   protectedRoutes.use(requireAuthentication);
   protectedRoutes.use('/users', createUsersRouter(usersService));
+  protectedRoutes.use('/audit-log', createAuditRouter(auditService));
   app.use('/api', protectedRoutes);
 
   app.use(createNotFoundHandler());
