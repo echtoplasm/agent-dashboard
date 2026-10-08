@@ -15,8 +15,13 @@ updates:
     schedule:
       interval: weekly
 
-  # Base images of the sandbox and egress proxy, pinned by digest.
+  # Base images of the sandbox and egress proxy, pinned by digest. Node
+  # majors are skipped: the project stays on the LTS line in .nvmrc, so a
+  # major bump is a deliberate change, not a weekly PR.
   - package-ecosystem: docker
     directories: [/infra/sandbox, /apps/egress-proxy]
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
