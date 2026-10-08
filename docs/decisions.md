@@ -322,3 +322,234 @@ transaction as the change, so they cannot race with a concurrent
 assignment. Runtime enforcement inside the sandbox is still planned for
 Phase 4. These checks keep the stored configuration valid; they don't
 replace the sandbox enforcing it.
+
+## Phase 3: Runs
+
+### D-022: Runs execute in Docker containers started through the docker CLI
+
+`DockerSandboxProvider` runs `docker run` as a child process rather than
+using a Docker API client library. That adds no dependency, and every flag
+is built by one pure function (`buildDockerRunArguments`) whose unit test
+pins each isolation setting, so loosening one is a visible change. The
+attached `docker run` process supplies the container's stdout, stderr and
+exit code directly.
+
+Each container:
+
+- runs as the API's own uid and gid, so workspace files on the host stay
+  owned by the API's account. The API refuses to start as root, because the
+  sandboxes would then be root too.
+- has a read-only root filesystem, drops every capability, sets
+  `no-new-privileges`, runs `--init`, and is limited in processes, CPU and
+  memory (with no swap on top). CPU and memory come from the sandbox
+  profile.
+- can write only to its workspace (`/workspace`), its HOME (`/home/agent`)
+  and a small in-memory `/tmp`.
+- receives provider keys as `--env NAME` with no value. Docker copies the
+  value from the docker CLI's environment, so keys never appear on a command
+  line. The docker CLI itself gets a minimal environment, so nothing else
+  from the API's environment (such as `DATABASE_URL`) can reach a sandbox.
+- reads its prompt from stdin, for the same reason and to avoid argument
+  length limits.
+
+Each run gets `RUN_DATA_DIR/<runId>/workspace` and `.../home`. The
+workspace starts empty and is kept, so its files can be listed and
+downloaded. The HOME is deleted when the run ends, because CLIs keep
+session state there. Workspace contents are untrusted: downloads never
+follow symlinks, check the real path, and are always served as
+`application/octet-stream` attachments.
+
+Skill versions are re-verified against their content hash at launch, then
+bind-mounted read-only into the provider's skills directory inside HOME.
+The API creates the empty mountpoints in HOME first. Otherwise Docker
+creates them as root, which left Codex unable to write its own state.
+
+The API's account must be able to use Docker, which is equivalent to root
+on the host. That is acceptable for a dedicated homelab host and is the main
+reason a Proxmox LXC provider is planned behind the same `SandboxProvider`
+interface.
+
+### D-023: Sandboxes reach the internet only through an allowlisting egress proxy
+
+The brief asks for network access to be off by default, but every agent CLI
+needs its provider's API. Sandboxes therefore join an `internal` Docker
+network (`agent-dashboard-sandbox`) with no route out, and get
+`HTTPS_PROXY` pointing at the egress proxy. The proxy sits on both that
+network and a normal one.
+
+The proxy (`apps/egress-proxy`) is a single TypeScript file with no
+dependencies. It accepts only `CONNECT` tunnels to port 443 of hostnames on
+an exact-match allowlist (`EGRESS_ALLOWED_HOSTS`, by default
+`api.anthropic.com` and `api.openai.com`). It refuses plain HTTP, other
+ports, IP literals and wildcards, and any hostname that resolves to a
+private, loopback or link-local address (so DNS tricks can't reach the
+LAN). Tunnels are opaque TLS, so the proxy never sees keys or prompts. It
+logs one JSON line per decision. Node 24 runs the file directly with type
+stripping, so its image holds nothing but Node.
+
+A hand-written proxy was chosen over Squid because the rule set is tiny and
+fully unit-tested, and it adds no third-party image to trust and patch.
+
+For now the allowlist is the same for every run. Honoring a sandbox
+profile's `allowedNetworkHosts` per run is part of Phase 4's permission
+enforcement.
+
+### D-024: The container is the security boundary, not the CLIs' own permission systems
+
+Claude Code runs with `--permission-mode bypassPermissions`, and Codex with
+`--dangerously-bypass-approvals-and-sandbox`:
+
+- A headless run has nobody to answer permission prompts. Prompts would
+  either stall the run or be denied, which breaks most useful tasks.
+- Codex's own sandbox needs kernel features that Docker's default seccomp
+  profile blocks, so it cannot run inside the container anyway.
+- The container already enforces what matters: no network beyond the
+  proxy, no writes outside the workspace and HOME, and no credentials except
+  the run's own key.
+
+Both CLIs are kept from loading anything they weren't given. HOME is empty
+apart from the mounted skills, so no user settings, hooks, plugins or
+memories from elsewhere can load. Codex also gets `--ignore-user-config`,
+`--ignore-rules` and `--ephemeral`, and Claude Code gets
+`--no-session-persistence`. Claude Code's `--bare` mode was tried and
+rejected: it limits the tools to Bash, Edit and Read and skips user skills.
+
+Model names are passed as `--model=<value>`, so a model name can never be
+read as a separate flag. Agents still can't pass extra CLI arguments.
+
+### D-025: Runs are executed by an in-process run manager
+
+The runs service decides whether a run may launch. The run manager
+executes it in the background of the API process: it starts the sandbox,
+parses output through the adapter, stores events, keeps usage totals,
+enforces the profile's maximum duration, and records how the run ended
+(`decideRunCompletion`, a pure function). The launch request returns as
+soon as the run is queued.
+
+- **Launch checks and capacity.** In one transaction the service takes an
+  advisory lock, counts active runs against `MAX_CONCURRENT_RUNS`, re-checks
+  the loadout rules (D-021) and skill hashes, and writes the run, its pinned
+  skill versions and the `run.launched` audit entry. A full system answers
+  429 with `capacity_reached`, distinct from rate limiting because it
+  clears when a run finishes. A basic concurrency cap was pulled forward
+  from Phase 4 because launching with no limit at all would be unsafe.
+- **Event order.** Each run's events are written one at a time in sequence
+  order, and published to live subscribers only after they are stored.
+- **SSE.** `GET /api/runs/:id/stream` subscribes first, then replays stored
+  events after `Last-Event-ID`, then forwards live ones, skipping anything
+  already sent. A client that reconnects (the browser's `EventSource` does
+  this itself) therefore sees no gaps and no duplicates. The stream ends
+  after the terminal status event.
+- **Single instance.** The event bus and the set of executing runs live in
+  memory, like the rate-limit counters (D-019). Running several API
+  instances would need Postgres `LISTEN/NOTIFY` for the bus and a shared
+  view of which instance owns a run.
+- **Restarts.** A killed API leaves containers running and runs marked
+  active. On startup, the API removes every container labelled
+  `agent-dashboard.managed`, fails the active runs with an explanatory
+  message, and appends a final status event to each. An operator can also
+  cancel such an orphaned run directly. On a clean shutdown, active runs are
+  stopped and marked failed before the server closes.
+
+### D-026: Admins may delete agents that never ran and skills never published
+
+This partly revises D-009, which only allowed archiving. Mistakes, such as
+a typo'd agent or a skill created by accident, should be removable, but
+nothing that history depends on should be. So:
+
+- An agent can be deleted only if it has no runs. Its assignments go with
+  it.
+- A skill can be deleted only if it has no published versions. Its provider
+  links go with it, and it can't have assignments.
+
+Both are admin-only and audited (`agent.deleted`, `skill.deleted`). The
+foreign keys from `agent_runs` and `skill_versions` would refuse the delete
+even if the service check were bypassed. Everything else is still archived.
+
+### D-027: Cost is provider-reported where possible and estimated from admin-set prices otherwise
+
+Claude Code reports each run's `total_cost_usd`, which is stored as micro-USD
+with `cost_source = provider_reported`. Codex reports only tokens. Its cost
+is estimated from `model_prices`, a table of per-million-token prices that
+admins maintain on the Model prices page, and stored with
+`cost_source = estimated`. The UI marks estimates with `~`.
+
+Prices are not hard-coded, because they change and a wrong built-in price
+would be silently wrong forever. A model with no price gets no cost rather
+than a guess, and agent usage totals report how many runs are unpriced.
+Changing a price never rewrites past runs. `input_tokens` always excludes
+cached input, which is counted in `cache_read_tokens` and priced
+separately; Codex's totals are split accordingly. A check constraint
+ensures `cost_source` is set exactly when `cost_micro_usd` is.
+
+Rate-limit pressure is recorded as `rate_limit` events when a provider
+reports it. Claude Code does so for subscription logins; API-key runs may
+not include it.
+
+### D-028: Secrets are redacted from agent output before it is parsed
+
+Agent output can contain secrets. The OpenAI API, for example, echoes an
+invalid key in its error message, and an agent may print its environment or
+read a credentials file. Every stdout and stderr line is redacted before
+the adapter parses it, so neither the normalized event nor the raw payload
+ever holds the secret. Redaction has two layers:
+
+1. The exact values injected into this run (its API key), whatever their
+   format.
+2. Patterns for common credential formats: Anthropic and OpenAI keys,
+   GitHub tokens, AWS access key ids, Slack tokens, bearer tokens and PEM
+   private keys. These are best effort.
+
+Stored stderr is capped at 500 lines per run, with a final notice counting
+the rest. NUL characters, which Postgres rejects in text and jsonb, are
+replaced before storage.
+
+### D-029: Adapters normalize provider output into one event union
+
+`RunEventData` (in `packages/shared`) is a discriminated union of event
+types: `run.status`, `session.started`, `assistant.text`,
+`assistant.thinking`, `tool.call`, `tool.result`, `usage`, `rate_limit`,
+`error`, `notice`, `run.result` and `provider.other`. Each adapter turns
+its CLI's JSON lines into these, so storage, SSE and the web app never
+handle a provider-specific format. The original line is kept as
+`raw_payload` for debugging.
+
+- Nothing is dropped. Lines that aren't JSON become `notice` events, and
+  provider events with no translation become `provider.other` events with
+  their raw JSON. The UI hides those behind a toggle.
+- Adapters read untrusted JSON field by field and treat a wrong type as
+  missing. A format change in a CLI therefore degrades to less detail, not a
+  crash. The run manager also validates every event against the schema, and
+  turns an invalid one into a notice.
+- Codex has no final result line, so its parser builds `run.result` when
+  the process exits. A run counts as failed if any turn failed or none
+  completed.
+- Both parsers are tested by replaying output recorded from the pinned CLI
+  versions, including authentication failures. The sandbox image pins those
+  versions, so re-record the fixtures whenever a version is bumped.
+- Verified details: Claude Code 2.1.291 requires `--verbose` with
+  `--print --output-format stream-json`. Claude Code discovers skills in
+  `$CLAUDE_CONFIG_DIR/skills/<name>/` and Codex 0.160.1 in
+  `$CODEX_HOME/skills/<name>/`. Codex authenticates with `CODEX_API_KEY` and
+  talks to its API over a WebSocket, which the CONNECT proxy tunnels like
+  any other TLS connection.
+
+### D-030: Skill folders import with the same rules from the CLI and the browser
+
+`prepareSkillFolderImport` (shared) turns a local folder into a publish
+request for both `npm run skills:import` and the web publish form's folder
+picker:
+
+- A browser's leading folder name is stripped, and Windows separators are
+  normalized.
+- A root `permissions.json` becomes the permissions manifest. Without one,
+  the skill gets the most restrictive manifest.
+- Hidden and binary files are skipped and listed, rather than failing the
+  whole import over a `.DS_Store`.
+
+The CLI never follows symlinks and skips `.git/` and `node_modules/`. It
+publishes through the skills service, so every server-side rule still
+applies (skill must exist and be active, version must increase, files are
+hashed and stored read-only). Its audit entry has no actor, like
+`users:create-admin`. Uploads stay JSON rather than archives, for the
+reasons in D-020.
