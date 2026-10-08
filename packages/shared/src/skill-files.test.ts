@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  prepareSkillFolderImport,
   SKILL_FILE_LIMITS,
   SkillFileListSchema,
   findSkillFrontmatterProblems,
@@ -120,5 +121,52 @@ describe('SkillFileListSchema', () => {
     ]);
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe('prepareSkillFolderImport', () => {
+  const skillMarkdown = '---\nname: x\ndescription: y\n---\n';
+
+  it('strips the folder name a browser includes and sorts the files', () => {
+    const result = prepareSkillFolderImport([
+      { relativePath: 'my-skill/scripts/run.sh', content: 'echo hi' },
+      { relativePath: 'my-skill/SKILL.md', content: skillMarkdown },
+    ]);
+
+    expect(result.files.map((file) => file.path)).toEqual(['SKILL.md', 'scripts/run.sh']);
+  });
+
+  it('takes a root permissions.json as the manifest instead of a file', () => {
+    const result = prepareSkillFolderImport([
+      { relativePath: 'SKILL.md', content: skillMarkdown },
+      { relativePath: 'permissions.json', content: '{"manifestVersion":1}' },
+    ]);
+
+    expect(result.manifestText).toBe('{"manifestVersion":1}');
+    expect(result.files.map((file) => file.path)).toEqual(['SKILL.md']);
+  });
+
+  it('skips hidden, binary and unsupported files and says why', () => {
+    const result = prepareSkillFolderImport([
+      { relativePath: 'SKILL.md', content: skillMarkdown },
+      { relativePath: '.git/config', content: '[core]' },
+      { relativePath: 'logo.png', content: 'PNG\u0000\u0001' },
+      { relativePath: 'my notes.txt', content: 'spaces are not allowed' },
+    ]);
+
+    expect(result.skippedFiles).toEqual([
+      { path: '.git/config', reason: 'hidden' },
+      { path: 'logo.png', reason: 'binary' },
+      { path: 'my notes.txt', reason: 'unsupported path' },
+    ]);
+  });
+
+  it('normalizes Windows separators', () => {
+    const result = prepareSkillFolderImport([
+      { relativePath: 'SKILL.md', content: skillMarkdown },
+      { relativePath: 'scripts\\run.sh', content: 'x' },
+    ]);
+
+    expect(result.files.map((file) => file.path)).toContain('scripts/run.sh');
   });
 });

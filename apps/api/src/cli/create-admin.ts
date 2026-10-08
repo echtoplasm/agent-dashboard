@@ -19,7 +19,8 @@ import { createDataAccess } from '../db/data-access.js';
 import { buildKnexConnectionConfig, createDatabaseClient } from '../db/knex.js';
 import { SYSTEM_AUDIT_CONTEXT } from '../modules/audit/audit.types.js';
 import { createUsersService } from '../modules/users/users.service.js';
-import { CliInputError, parseCreateAdminArguments } from './create-admin-arguments.js';
+import { CliInputError } from './cli-input-error.js';
+import { CREATE_ADMIN_USAGE, parseCreateAdminArguments } from './create-admin-arguments.js';
 import { promptHidden, readAllStandardInput } from './prompt.js';
 
 const FAILURE_EXIT_CODE = 1;
@@ -31,7 +32,7 @@ async function readPassword(isReadingFromStandardInput: boolean): Promise<string
   const password = await promptHidden('Password: ');
   const confirmation = await promptHidden('Confirm password: ');
   if (password !== confirmation) {
-    throw new CliInputError('Passwords do not match.');
+    throw new CliInputError('Passwords do not match.', CREATE_ADMIN_USAGE);
   }
   return password;
 }
@@ -42,7 +43,7 @@ async function main(argv: string[]): Promise<void> {
     await readPassword(cliArguments.isReadingPasswordFromStandardInput),
   );
   if (!passwordResult.success) {
-    throw new CliInputError('Password must be 12 to 256 characters.');
+    throw new CliInputError('Password must be 12 to 256 characters.', CREATE_ADMIN_USAGE);
   }
 
   const apiConfig = loadApiConfig(process.env);

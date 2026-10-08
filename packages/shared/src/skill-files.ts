@@ -126,3 +126,93 @@ export const SkillFileListSchema = z
       context.addIssue({ code: 'custom', message: problem });
     }
   });
+
+/**
+ * Optional file at the root of a skill folder holding its permissions
+ * manifest. When a folder is imported it becomes the manifest, not a skill file.
+ */
+export const SKILL_PERMISSIONS_FILE_NAME = 'permissions.json';
+
+/** A file read from a local skill folder, before any checks. */
+export interface LocalSkillFile {
+  /** Path relative to the chosen folder, with `/` or `\` separators. */
+  relativePath: string;
+  content: string;
+}
+
+/** Why a local file was left out of an import. */
+export type SkippedFileReason = 'hidden' | 'binary' | 'unsupported path';
+
+/** The result of preparing a local folder for publishing. */
+export interface SkillFolderImport {
+  /** Files to publish, sorted by path. Still to be checked with `SkillFileListSchema`. */
+  files: SkillFile[];
+  /** Contents of a root `permissions.json`, or null if the folder has none. */
+  manifestText: string | null;
+  /** Files that were left out, and why. */
+  skippedFiles: { path: string; reason: SkippedFileReason }[];
+}
+
+/**
+ * Strips a shared top-level folder name when `SKILL.md` isn't already at the
+ * root. Browsers report picked folders as `my-skill/SKILL.md`.
+ */
+function stripSharedTopFolder(paths: string[]): string[] {
+  if (paths.includes(SKILL_ENTRY_FILE_NAME)) {
+    return paths;
+  }
+  const topFolders = new Set(paths.map((path) => path.split('/')[0]));
+  const isEveryPathNested = paths.every((path) => path.includes('/'));
+  return topFolders.size === 1 && isEveryPathNested
+    ? paths.map((path) => path.slice(path.indexOf('/') + 1))
+    : paths;
+}
+
+function classifySkippedFile(path: string, content: string): SkippedFileReason | undefined {
+  if (path.split('/').some((segment) => segment.startsWith('.'))) {
+    return 'hidden';
+  }
+  if (content.includes('\u0000')) {
+    return 'binary';
+  }
+  return isSafeSkillFilePath(path) ? undefined : 'unsupported path';
+}
+
+/**
+ * Turns the files of a local skill folder into a publishable file list.
+ *
+ * Used by both the `skills:import` CLI and the web folder picker, so a
+ * folder imports the same way from either. Hidden files (such as `.git/`
+ * or `.DS_Store`) and binary files are skipped rather than failing the
+ * whole import, and reported so nothing is dropped silently.
+ *
+ * @param localFiles - Every file found in the folder.
+ * @returns Files to publish, the manifest text if present, and what was skipped.
+ *
+ * @example
+ * ```ts
+ * prepareSkillFolderImport([{ relativePath: 'my-skill/SKILL.md', content }]).files;
+ * // [{ path: 'SKILL.md', content }]
+ * ```
+ */
+export function prepareSkillFolderImport(localFiles: readonly LocalSkillFile[]): SkillFolderImport {
+  const normalizedPaths = stripSharedTopFolder(
+    localFiles.map((file) => file.relativePath.replaceAll('\\', '/').replace(/^\/+/, '')),
+  );
+  const result: SkillFolderImport = { files: [], manifestText: null, skippedFiles: [] };
+  localFiles.forEach((file, index) => {
+    const path = normalizedPaths[index] ?? file.relativePath;
+    if (path === SKILL_PERMISSIONS_FILE_NAME) {
+      result.manifestText = file.content;
+      return;
+    }
+    const skippedReason = classifySkippedFile(path, file.content);
+    if (skippedReason === undefined) {
+      result.files.push({ path, content: file.content });
+    } else {
+      result.skippedFiles.push({ path, reason: skippedReason });
+    }
+  });
+  result.files.sort((left, right) => (left.path < right.path ? -1 : 1));
+  return result;
+}

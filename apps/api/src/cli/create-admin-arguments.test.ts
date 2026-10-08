@@ -2,7 +2,8 @@
  * Tests for the create-admin command line.
  */
 import { describe, expect, it } from 'vitest';
-import { CliInputError, parseCreateAdminArguments } from './create-admin-arguments.js';
+import { CliInputError } from './cli-input-error.js';
+import { parseCreateAdminArguments } from './create-admin-arguments.js';
 
 describe('parseCreateAdminArguments', () => {
   it('reads --username and --email', () => {

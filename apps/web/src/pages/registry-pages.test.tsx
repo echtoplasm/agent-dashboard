@@ -7,7 +7,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import type { Agent, Provider, Skill, SkillVersionSummary } from '@agent-dashboard/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '../App.js';
 import { AuthProvider } from '../auth/AuthContext.js';
 import { TEST_OPERATOR, installFakeApi } from '../test/fake-api.js';
@@ -175,5 +175,37 @@ describe('publishing a skill version', () => {
       ([, init]) => (init as RequestInit | undefined)?.method === 'POST',
     );
     expect(publishCalls).toEqual([]);
+  });
+
+  it('fills the form from a picked folder and reports skipped files', async () => {
+    renderAt(`/skills/${SKILL.id}`, {
+      [`GET /api/skills/${SKILL.id}`]: { status: 200, body: SKILL },
+      [`GET /api/skills/${SKILL.id}/versions`]: { status: 200, body: { items: [] } },
+    });
+    const pickedFiles = [
+      ['greeter/SKILL.md', '---\nname: greeter\ndescription: Greets\n---\nHello'],
+      ['greeter/scripts/hi.sh', 'echo hi'],
+      ['greeter/permissions.json', '{"manifestVersion":1,"network":{"isAllowed":false}}'],
+      ['greeter/.DS_Store', 'junk'],
+    ].map(([relativePath = '', content = '']) => {
+      const file = new File([content], relativePath.split('/').at(-1) ?? '');
+      Object.defineProperty(file, 'webkitRelativePath', { value: relativePath });
+      return file;
+    });
+
+    fireEvent.change(await screen.findByLabelText('Load from folder'), {
+      target: { files: pickedFiles },
+    });
+
+    await vi.waitFor(() => {
+      expect(screen.getByLabelText<HTMLTextAreaElement>('SKILL.md').value).toContain(
+        'name: greeter',
+      );
+    });
+    expect(screen.getByDisplayValue('scripts/hi.sh')).toBeDefined();
+    expect(
+      screen.getByLabelText<HTMLTextAreaElement>('Permissions manifest (JSON)').value,
+    ).toContain('"isAllowed":false');
+    expect(screen.getByText(/skipped \.DS_Store \(hidden\)/)).toBeDefined();
   });
 });

@@ -8,6 +8,7 @@
  */
 import { parseArgs } from 'node:util';
 import { UsernameSchema } from '@agent-dashboard/shared';
+import { CliInputError } from './cli-input-error.js';
 
 /** Shown with every input error, so the fix is on screen. */
 export const CREATE_ADMIN_USAGE = [
@@ -18,14 +19,6 @@ export const CREATE_ADMIN_USAGE = [
   'Note the "--" after the script name: without it, npm keeps flags like --username for itself.',
 ].join('\n');
 
-/** Thrown for bad command-line input; the message is shown as-is. */
-export class CliInputError extends Error {
-  constructor(message: string) {
-    super(`${message}\n\n${CREATE_ADMIN_USAGE}`);
-    this.name = 'CliInputError';
-  }
-}
-
 /** The parsed command line. */
 export interface CreateAdminArguments {
   username: string;
@@ -35,11 +28,17 @@ export interface CreateAdminArguments {
 
 function readUsername(flagUsername: string | undefined, positionals: string[]): unknown {
   if (positionals.length > 1) {
-    throw new CliInputError(`Expected one username, got: ${positionals.join(' ')}`);
+    throw new CliInputError(
+      `Expected one username, got: ${positionals.join(' ')}`,
+      CREATE_ADMIN_USAGE,
+    );
   }
   const [positionalUsername] = positionals;
   if (flagUsername !== undefined && positionalUsername !== undefined) {
-    throw new CliInputError('Give the username once, either as --username or on its own.');
+    throw new CliInputError(
+      'Give the username once, either as --username or on its own.',
+      CREATE_ADMIN_USAGE,
+    );
   }
   return flagUsername ?? positionalUsername;
 }
@@ -64,13 +63,19 @@ export function parseCreateAdminArguments(argv: string[]): CreateAdminArguments 
       },
     });
   } catch (error) {
-    throw new CliInputError(error instanceof Error ? error.message : String(error));
+    throw new CliInputError(
+      error instanceof Error ? error.message : String(error),
+      CREATE_ADMIN_USAGE,
+    );
   }
   const usernameResult = UsernameSchema.safeParse(
     readUsername(parsed.values.username, parsed.positionals),
   );
   if (!usernameResult.success) {
-    throw new CliInputError('A username is required: 3 to 64 letters, digits, ".", "_" or "-".');
+    throw new CliInputError(
+      'A username is required: 3 to 64 letters, digits, ".", "_" or "-".',
+      CREATE_ADMIN_USAGE,
+    );
   }
   return {
     username: usernameResult.data,
