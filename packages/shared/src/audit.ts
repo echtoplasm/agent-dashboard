@@ -29,6 +29,12 @@ export const AUDIT_ACTIONS = [
   'skill_version.published',
   'agent_skill.assigned',
   'agent_skill.unassigned',
+  'agent.deleted',
+  'skill.deleted',
+  'run.launched',
+  'run.cancelled',
+  'model_price.set',
+  'model_price.deleted',
 ] as const;
 
 /** A recorded action name. */
@@ -42,6 +48,8 @@ export const AUDIT_TARGET_TYPES = [
   'agent',
   'skill',
   'skill_version',
+  'run',
+  'model_price',
 ] as const;
 
 /** A kind of audit target. */
