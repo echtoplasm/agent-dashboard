@@ -8,28 +8,21 @@
  * @example
  * ```sh
  * npm run users:create-admin -- --username alice
+ * npm run users:create-admin -- alice
  * npm run users:create-admin -- --username alice --email alice@example.com
  * pass show dashboard/admin | npm run users:create-admin -- --username alice --password-stdin
  * ```
  */
-import { parseArgs } from 'node:util';
-import { PasswordSchema, UsernameSchema } from '@agent-dashboard/shared';
+import { PasswordSchema } from '@agent-dashboard/shared';
 import { loadApiConfig } from '../config/env.js';
 import { createDataAccess } from '../db/data-access.js';
 import { buildKnexConnectionConfig, createDatabaseClient } from '../db/knex.js';
 import { SYSTEM_AUDIT_CONTEXT } from '../modules/audit/audit.types.js';
 import { createUsersService } from '../modules/users/users.service.js';
+import { CliInputError, parseCreateAdminArguments } from './create-admin-arguments.js';
 import { promptHidden, readAllStandardInput } from './prompt.js';
 
 const FAILURE_EXIT_CODE = 1;
-
-/** Thrown for bad command-line input; the message is shown as-is. */
-class CliInputError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'CliInputError';
-  }
-}
 
 async function readPassword(isReadingFromStandardInput: boolean): Promise<string> {
   if (isReadingFromStandardInput) {
@@ -43,28 +36,8 @@ async function readPassword(isReadingFromStandardInput: boolean): Promise<string
   return password;
 }
 
-function parseCliArguments(argv: string[]) {
-  const { values } = parseArgs({
-    args: argv,
-    options: {
-      username: { type: 'string' },
-      email: { type: 'string' },
-      'password-stdin': { type: 'boolean', default: false },
-    },
-  });
-  const usernameResult = UsernameSchema.safeParse(values.username);
-  if (!usernameResult.success) {
-    throw new CliInputError('--username is required: 3 to 64 letters, digits, ".", "_" or "-".');
-  }
-  return {
-    username: usernameResult.data,
-    email: values.email ?? null,
-    isReadingPasswordFromStandardInput: values['password-stdin'],
-  };
-}
-
 async function main(argv: string[]): Promise<void> {
-  const cliArguments = parseCliArguments(argv);
+  const cliArguments = parseCreateAdminArguments(argv);
   const passwordResult = PasswordSchema.safeParse(
     await readPassword(cliArguments.isReadingPasswordFromStandardInput),
   );
