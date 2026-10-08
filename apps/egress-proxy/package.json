@@ -1,0 +1,12 @@
+{
+  "name": "@agent-dashboard/egress-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CONNECT-only allowlisting proxy that is the sandbox network's only way out.",
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/egress-proxy.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  }
+}

@@ -24,5 +24,30 @@ services:
       timeout: 3s
       retries: 10
 
+  # The only way out of the sandbox network: HTTPS CONNECT tunnels to the
+  # provider API hosts listed below, nothing else (see D-023).
+  egress-proxy:
+    build: ./apps/egress-proxy
+    image: agent-dashboard/egress-proxy:latest
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    environment:
+      EGRESS_ALLOWED_HOSTS: ${EGRESS_ALLOWED_HOSTS:-api.anthropic.com,api.openai.com}
+    networks:
+      sandbox:
+        aliases: [egress-proxy]
+      egress: {}
+
+networks:
+  # Agent sandboxes join this network. `internal` means Docker gives it no
+  # route to the host's network or the internet.
+  sandbox:
+    name: agent-dashboard-sandbox
+    internal: true
+  egress:
+    name: agent-dashboard-egress
+
 volumes:
   postgres-data:

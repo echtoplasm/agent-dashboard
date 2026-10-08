@@ -6,6 +6,7 @@
   "type": "module",
   "workspaces": [
     "packages/shared",
+    "apps/egress-proxy",
     "apps/api",
     "apps/web"
   ],
@@ -19,6 +20,7 @@
     "db:rollback": "npm run db:rollback -w @agent-dashboard/api",
     "db:seed": "npm run db:seed -w @agent-dashboard/api",
     "users:create-admin": "npm run users:create-admin -w @agent-dashboard/api --",
+    "sandbox:build": "docker build --tag agent-dashboard/sandbox:latest infra/sandbox",
     "lint": "eslint .",
     "format": "prettier --write . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path .prettierignore --ignore-path .git/info/exclude",

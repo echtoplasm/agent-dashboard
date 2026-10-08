@@ -14,3 +14,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+
+  # Base images of the sandbox and egress proxy, pinned by digest.
+  - package-ecosystem: docker
+    directories: [/infra/sandbox, /apps/egress-proxy]
+    schedule:
+      interval: weekly
