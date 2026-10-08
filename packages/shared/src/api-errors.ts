@@ -12,8 +12,10 @@ export const API_ERROR_CODES = [
   'not_found',
   'conflict',
   'rate_limited',
+  'capacity_reached',
   'unsupported_media_type',
   'internal_error',
+  'service_unavailable',
 ] as const;
 
 /** One of the machine-readable error codes. */

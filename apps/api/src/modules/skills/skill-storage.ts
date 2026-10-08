@@ -144,6 +144,13 @@ export interface SkillStorage {
    * @throws {SkillIntegrityError} If the files don't match `expectedContentHash`.
    */
   readVersionFiles(storagePath: string, expectedContentHash: string): Promise<SkillFile[]>;
+  /**
+   * Returns the absolute directory of a stored version, for mounting it
+   * read-only into a sandbox.
+   *
+   * @throws {UnsafeStoragePathError} If the path would leave the storage root.
+   */
+  resolveVersionDirectory(storagePath: string): string;
 }
 
 /**
@@ -196,6 +203,8 @@ export function createSkillStorage(rootDirectory: string): SkillStorage {
       });
       await rm(versionDirectory, { recursive: true, force: true });
     },
+
+    resolveVersionDirectory: (storagePath) => resolveInside(root, storagePath),
 
     async readVersionFiles(storagePath, expectedContentHash) {
       const versionDirectory = resolveInside(root, storagePath);

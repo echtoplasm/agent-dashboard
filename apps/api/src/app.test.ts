@@ -6,8 +6,12 @@ import request from 'supertest';
 import type { ErrorResponseBody } from './middleware/error-handler.js';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
+import { createDataAccess } from './db/data-access.js';
 import { buildKnexConnectionConfig, createDatabaseClient } from './db/knex.js';
 import { createLogger } from './logger.js';
+import { createRunEventBus } from './modules/runs/run-event-bus.js';
+import { createRunManager } from './modules/runs/run-manager.js';
+import { createFakeSandboxProvider } from '../test/fake-sandbox-provider.js';
 
 /** Nothing listens on port 1, so every connection attempt is refused at once. */
 const UNREACHABLE_DATABASE_URL = 'postgres://nobody:nothing@127.0.0.1:1/none';
@@ -15,14 +19,23 @@ const UNREACHABLE_DATABASE_URL = 'postgres://nobody:nothing@127.0.0.1:1/none';
 const unreachableDatabase = createDatabaseClient(
   buildKnexConnectionConfig(UNREACHABLE_DATABASE_URL),
 );
+const logger = createLogger('silent');
 const app = createApp({
   database: unreachableDatabase,
-  logger: createLogger('silent'),
+  logger,
+  runManager: createRunManager({
+    dataAccess: createDataAccess(unreachableDatabase),
+    sandboxProvider: createFakeSandboxProvider(),
+    eventBus: createRunEventBus(),
+    logger,
+    runDataDirectory: '/nonexistent/runs',
+  }),
   settings: {
     appOrigins: ['http://dashboard.test'],
     trustProxyHops: 0,
     isSecureCookie: false,
     skillStorageDirectory: '/nonexistent/skills',
+    runs: { maxConcurrentRuns: 1, providerApiKeys: {} },
   },
 });
 

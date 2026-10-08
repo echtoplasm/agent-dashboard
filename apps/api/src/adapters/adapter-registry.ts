@@ -18,9 +18,14 @@ const ADAPTERS_BY_PROVIDER_SLUG: Record<ProviderSlug, AgentAdapter> = {
 /**
  * Returns the adapter for a provider.
  *
+ * Takes a plain string because provider rows only have a format check in
+ * the database (D-009), so a row may name a provider this build can't run.
+ *
  * @param providerSlug - The provider's slug.
- * @returns Its adapter.
+ * @returns Its adapter, or undefined if there is none.
  */
-export function getAgentAdapter(providerSlug: ProviderSlug): AgentAdapter {
-  return ADAPTERS_BY_PROVIDER_SLUG[providerSlug];
+export function findAgentAdapter(providerSlug: string): AgentAdapter | undefined {
+  return Object.hasOwn(ADAPTERS_BY_PROVIDER_SLUG, providerSlug)
+    ? ADAPTERS_BY_PROVIDER_SLUG[providerSlug as ProviderSlug]
+    : undefined;
 }

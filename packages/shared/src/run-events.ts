@@ -207,3 +207,9 @@ export function truncateText(
     ? { text: text.slice(0, maxLength), isTruncated: true }
     : { text, isTruncated: false };
 }
+
+/** Payload of a `usage` event. */
+export type UsageEventPayload = z.infer<typeof UsageEventPayloadSchema>;
+
+/** Payload of a `run.result` event. */
+export type RunResultEventPayload = z.infer<typeof RunResultEventPayloadSchema>;

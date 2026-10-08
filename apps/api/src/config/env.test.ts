@@ -20,7 +20,40 @@ describe('loadApiConfig', () => {
       trustProxyHops: 0,
       skillStorageDirectory: expect.stringMatching(/\/data\/skills$/) as string,
       isSecureCookie: false,
+      runDataDirectory: expect.stringMatching(/\/data\/runs$/) as string,
+      maxConcurrentRuns: 2,
+      sandbox: {
+        networkName: 'agent-dashboard-sandbox',
+        egressProxyUrl: 'http://egress-proxy:3128',
+        dockerCommand: 'docker',
+      },
+      providerApiKeys: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
     });
+  });
+
+  it('reads provider API keys and treats an empty key as unset', () => {
+    const apiConfig = loadApiConfig({
+      DATABASE_URL: VALID_DATABASE_URL,
+      ANTHROPIC_API_KEY: 'sk-ant-example',
+      OPENAI_API_KEY: '',
+    });
+
+    expect(apiConfig.providerApiKeys).toEqual({
+      ANTHROPIC_API_KEY: 'sk-ant-example',
+      OPENAI_API_KEY: undefined,
+    });
+  });
+
+  it('bounds MAX_CONCURRENT_RUNS', () => {
+    expect(() =>
+      loadApiConfig({ DATABASE_URL: VALID_DATABASE_URL, MAX_CONCURRENT_RUNS: '0' }),
+    ).toThrow(/MAX_CONCURRENT_RUNS/);
+  });
+
+  it('rejects a sandbox network name that could be read as a flag', () => {
+    expect(() =>
+      loadApiConfig({ DATABASE_URL: VALID_DATABASE_URL, SANDBOX_NETWORK: '--privileged' }),
+    ).toThrow(/SANDBOX_NETWORK/);
   });
 
   it('parses a comma-separated list of app origins', () => {

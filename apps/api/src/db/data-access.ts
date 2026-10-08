@@ -15,8 +15,12 @@ import { createSessionsRepository } from '../modules/auth/sessions.repository.js
 import type { SessionsRepository } from '../modules/auth/sessions.repository.js';
 import { createAuditRepository } from '../modules/audit/audit.repository.js';
 import type { AuditRepository } from '../modules/audit/audit.repository.js';
+import { createModelPricesRepository } from '../modules/model-prices/model-prices.repository.js';
+import type { ModelPricesRepository } from '../modules/model-prices/model-prices.repository.js';
 import { createProvidersRepository } from '../modules/providers/providers.repository.js';
 import type { ProvidersRepository } from '../modules/providers/providers.repository.js';
+import { createRunsRepository } from '../modules/runs/runs.repository.js';
+import type { RunsRepository } from '../modules/runs/runs.repository.js';
 import { createSandboxProfilesRepository } from '../modules/sandbox-profiles/sandbox-profiles.repository.js';
 import type { SandboxProfilesRepository } from '../modules/sandbox-profiles/sandbox-profiles.repository.js';
 import { createSkillVersionsRepository } from '../modules/skills/skill-versions.repository.js';
@@ -38,6 +42,8 @@ export interface Repositories {
   skills: SkillsRepository;
   skillVersions: SkillVersionsRepository;
   assignments: AssignmentsRepository;
+  runs: RunsRepository;
+  modelPrices: ModelPricesRepository;
 }
 
 /** Repository access plus transactions, as services see it. */
@@ -68,6 +74,8 @@ export function createRepositories(database: DatabaseExecutor): Repositories {
     skills: createSkillsRepository(database),
     skillVersions: createSkillVersionsRepository(database),
     assignments: createAssignmentsRepository(database),
+    runs: createRunsRepository(database),
+    modelPrices: createModelPricesRepository(database),
   };
 }
 

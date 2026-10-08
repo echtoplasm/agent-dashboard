@@ -6,6 +6,7 @@ import type { AgentSkillAssignment } from '@agent-dashboard/shared';
 import { SkillPermissionsManifestSchema } from '@agent-dashboard/shared';
 import type { DatabaseExecutor } from '../../db/database-executor.js';
 import { toIsoString } from '../../db/row-mapping.js';
+import type { LaunchSkillVersion } from '../runs/runs.types.js';
 import type { LoadoutEntry } from './assignments.types.js';
 
 interface AssignmentRow {
@@ -25,6 +26,13 @@ interface LoadoutEntryRow {
   version: string;
   supported_provider_ids: string[];
   permissions_manifest: unknown;
+}
+
+interface LaunchSkillVersionRow extends LoadoutEntryRow {
+  skill_version_id: string;
+  skill_slug: string;
+  content_hash: string;
+  storage_path: string;
 }
 
 function mapAssignmentRow(row: AssignmentRow): AgentSkillAssignment {
@@ -59,6 +67,8 @@ export interface AssignmentsRepository {
   deleteAssignment(agentId: string, skillId: string): Promise<boolean>;
   /** Everything needed to re-check an agent's loadout against its provider and profile. */
   listLoadoutEntries(agentId: string): Promise<LoadoutEntry[]>;
+  /** The loadout plus what launching needs: slugs, content hashes and storage paths. */
+  listLaunchSkillVersions(agentId: string): Promise<LaunchSkillVersion[]>;
   /** Non-archived agents that have any version of the skill assigned. */
   listActiveAgentsAssignedSkill(
     skillId: string,
@@ -87,6 +97,25 @@ export function createAssignmentsRepository(database: DatabaseExecutor): Assignm
         'agent_skill_assignments.assigned_at',
       )
       .orderBy('skills.name');
+  }
+
+  /** An agent's assigned versions with the columns every loadout check needs. */
+  function selectLoadoutRows(agentId: string) {
+    return database('agent_skill_assignments')
+      .join('skills', 'skills.id', 'agent_skill_assignments.skill_id')
+      .join('skill_versions', 'skill_versions.id', 'agent_skill_assignments.skill_version_id')
+      .where('agent_skill_assignments.agent_id', agentId)
+      .orderBy('skills.slug')
+      .select(
+        'skills.id AS skill_id',
+        'skills.name AS skill_name',
+        'skill_versions.version',
+        'skill_versions.permissions_manifest',
+        database.raw(
+          `coalesce((SELECT array_agg(provider_id) FROM skill_supported_providers
+             WHERE skill_id = skills.id), '{}') AS supported_provider_ids`,
+        ),
+      );
   }
 
   return {
@@ -125,21 +154,28 @@ export function createAssignmentsRepository(database: DatabaseExecutor): Assignm
       return deletedCount > 0;
     },
 
+    async listLaunchSkillVersions(agentId) {
+      const rows = await selectLoadoutRows(agentId).select<LaunchSkillVersionRow[]>(
+        'skill_versions.id AS skill_version_id',
+        'skills.slug AS skill_slug',
+        'skill_versions.content_hash',
+        'skill_versions.storage_path',
+      );
+      return rows.map((row) => ({
+        skillVersionId: row.skill_version_id,
+        skillId: row.skill_id,
+        skillSlug: row.skill_slug,
+        skillName: row.skill_name,
+        version: row.version,
+        contentHash: row.content_hash,
+        storagePath: row.storage_path,
+        supportedProviderIds: row.supported_provider_ids,
+        permissionsManifest: SkillPermissionsManifestSchema.parse(row.permissions_manifest),
+      }));
+    },
+
     async listLoadoutEntries(agentId) {
-      const rows = await database('agent_skill_assignments')
-        .join('skills', 'skills.id', 'agent_skill_assignments.skill_id')
-        .join('skill_versions', 'skill_versions.id', 'agent_skill_assignments.skill_version_id')
-        .where('agent_skill_assignments.agent_id', agentId)
-        .select<LoadoutEntryRow[]>(
-          'skills.id AS skill_id',
-          'skills.name AS skill_name',
-          'skill_versions.version',
-          'skill_versions.permissions_manifest',
-          database.raw(
-            `coalesce((SELECT array_agg(provider_id) FROM skill_supported_providers
-               WHERE skill_id = skills.id), '{}') AS supported_provider_ids`,
-          ),
-        );
+      const rows = await selectLoadoutRows(agentId).select<LoadoutEntryRow[]>();
       return rows.map((row) => ({
         skillId: row.skill_id,
         skillName: row.skill_name,

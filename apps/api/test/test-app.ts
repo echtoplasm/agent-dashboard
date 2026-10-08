@@ -15,7 +15,12 @@ import type { AppSettings } from '../src/app.js';
 import { createDataAccess } from '../src/db/data-access.js';
 import { createLogger } from '../src/logger.js';
 import { SYSTEM_AUDIT_CONTEXT } from '../src/modules/audit/audit.types.js';
+import { createRunEventBus } from '../src/modules/runs/run-event-bus.js';
+import { createRunManager } from '../src/modules/runs/run-manager.js';
+import type { RunManager } from '../src/modules/runs/run-manager.js';
 import { createUsersService } from '../src/modules/users/users.service.js';
+import { createFakeSandboxProvider } from './fake-sandbox-provider.js';
+import type { FakeSandboxProvider } from './fake-sandbox-provider.js';
 
 /** The browser origin test requests claim to come from. */
 export const TEST_APP_ORIGIN = 'http://dashboard.test';
@@ -30,8 +35,62 @@ export const TEST_USER_PASSWORD = 'test-password-long-enough';
  */
 const TEST_SKILL_STORAGE_DIRECTORY = mkdtempSync(join(tmpdir(), 'agent-dashboard-skills-'));
 
+/** A throwaway run data directory per test file. */
+const TEST_RUN_DATA_DIRECTORY = mkdtempSync(join(tmpdir(), 'agent-dashboard-runs-'));
+
+/** Fake keys long enough to be redacted. They are never sent anywhere. */
+export const TEST_PROVIDER_API_KEYS = {
+  ANTHROPIC_API_KEY: 'sk-ant-test-0000000000000000000000',
+  OPENAI_API_KEY: 'sk-test-openai-000000000000000000',
+};
+
 /** Rate limits high enough that ordinary tests never hit them. */
 const RELAXED_RATE_LIMITS = { apiRequestsPerMinute: 10_000, failedLoginsPerWindow: 10_000 };
+
+/** The app plus the pieces run tests need to drive and observe runs. */
+export interface TestAppWithRuns {
+  app: Express;
+  runManager: RunManager;
+  sandboxProvider: FakeSandboxProvider;
+  runDataDirectory: string;
+}
+
+/**
+ * Builds the full app with test-friendly settings and a fake sandbox.
+ *
+ * @param database - Knex client connected as the app role.
+ * @param overrides - Settings to change, e.g. strict rate limits.
+ * @returns The app, its run manager and the fake sandbox provider.
+ */
+export function createTestAppWithRuns(
+  database: Knex,
+  overrides: Partial<AppSettings> = {},
+): TestAppWithRuns {
+  const logger = createLogger('silent');
+  const sandboxProvider = createFakeSandboxProvider();
+  const runManager = createRunManager({
+    dataAccess: createDataAccess(database),
+    sandboxProvider,
+    eventBus: createRunEventBus(),
+    logger,
+    runDataDirectory: TEST_RUN_DATA_DIRECTORY,
+  });
+  const app = createApp({
+    database,
+    logger,
+    runManager,
+    settings: {
+      appOrigins: [TEST_APP_ORIGIN],
+      trustProxyHops: 0,
+      isSecureCookie: false,
+      skillStorageDirectory: TEST_SKILL_STORAGE_DIRECTORY,
+      runs: { maxConcurrentRuns: 2, providerApiKeys: TEST_PROVIDER_API_KEYS },
+      rateLimits: RELAXED_RATE_LIMITS,
+      ...overrides,
+    },
+  });
+  return { app, runManager, sandboxProvider, runDataDirectory: TEST_RUN_DATA_DIRECTORY };
+}
 
 /**
  * Builds the full app with test-friendly settings.
@@ -41,18 +100,7 @@ const RELAXED_RATE_LIMITS = { apiRequestsPerMinute: 10_000, failedLoginsPerWindo
  * @returns The Express app.
  */
 export function createTestApp(database: Knex, overrides: Partial<AppSettings> = {}): Express {
-  return createApp({
-    database,
-    logger: createLogger('silent'),
-    settings: {
-      appOrigins: [TEST_APP_ORIGIN],
-      trustProxyHops: 0,
-      isSecureCookie: false,
-      skillStorageDirectory: TEST_SKILL_STORAGE_DIRECTORY,
-      rateLimits: RELAXED_RATE_LIMITS,
-      ...overrides,
-    },
-  });
+  return createTestAppWithRuns(database, overrides).app;
 }
 
 /**

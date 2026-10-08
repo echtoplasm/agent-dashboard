@@ -34,8 +34,10 @@ export const ERROR_CODES = {
   NOT_FOUND: 'not_found',
   CONFLICT: 'conflict',
   RATE_LIMITED: 'rate_limited',
+  CAPACITY_REACHED: 'capacity_reached',
   UNSUPPORTED_MEDIA_TYPE: 'unsupported_media_type',
   INTERNAL_ERROR: 'internal_error',
+  SERVICE_UNAVAILABLE: 'service_unavailable',
 } as const satisfies Record<string, ApiErrorCode>;
 
 /**
@@ -136,5 +138,32 @@ export class RateLimitedError extends AppError {
       HTTP_STATUS.TOO_MANY_REQUESTS,
       ERROR_CODES.RATE_LIMITED,
     );
+  }
+}
+
+/**
+ * Launching another run would exceed `MAX_CONCURRENT_RUNS`. Distinct from
+ * rate limiting: it clears as soon as a run finishes, not after a time window.
+ */
+export class RunCapacityError extends AppError {
+  /**
+   * @param maxConcurrentRuns - The configured limit, included in the message.
+   */
+  constructor(maxConcurrentRuns: number) {
+    super(
+      `${maxConcurrentRuns} runs are already active, the most allowed at once; try again when one finishes`,
+      HTTP_STATUS.TOO_MANY_REQUESTS,
+      ERROR_CODES.CAPACITY_REACHED,
+    );
+  }
+}
+
+/** The server is missing configuration or a dependency needed for this request. */
+export class ServiceUnavailableError extends AppError {
+  /**
+   * @param message - What is missing, safe to show to clients.
+   */
+  constructor(message: string) {
+    super(message, HTTP_STATUS.SERVICE_UNAVAILABLE, ERROR_CODES.SERVICE_UNAVAILABLE);
   }
 }

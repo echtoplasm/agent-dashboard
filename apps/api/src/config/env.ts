@@ -29,6 +29,29 @@ const DEFAULT_SKILL_STORAGE_DIRECTORY = fileURLToPath(
   new URL('../../../../data/skills', import.meta.url),
 );
 
+/** Default run storage (workspaces and temporary HOMEs): `<repo>/data/runs`. */
+const DEFAULT_RUN_DATA_DIRECTORY = fileURLToPath(new URL('../../../../data/runs', import.meta.url));
+
+/** Runs allowed at once by default. Small, to stay under provider rate limits. */
+const DEFAULT_MAX_CONCURRENT_RUNS = 2;
+const MAX_CONCURRENT_RUNS_CEILING = 50;
+
+/** Matches the network and proxy alias in compose.yaml. */
+const DEFAULT_SANDBOX_NETWORK = 'agent-dashboard-sandbox';
+const DEFAULT_SANDBOX_EGRESS_PROXY_URL = 'http://egress-proxy:3128';
+
+/**
+ * Environment variables holding provider API keys. Adapters name the one
+ * they need (`AgentAdapter.apiKeyEnvironmentVariable`).
+ */
+export const PROVIDER_API_KEY_VARIABLES = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY'] as const;
+
+/** An optional secret: unset and empty both mean "not configured". */
+const OptionalSecretSchema = z
+  .string()
+  .optional()
+  .transform((value) => (value === '' ? undefined : value));
+
 /** The process environment, or a stand-in object in tests. */
 export type EnvironmentVariables = Record<string, string | undefined>;
 
@@ -67,6 +90,26 @@ const ApiEnvironmentSchema = z
       .string()
       .refine(isAbsolute, 'Must be an absolute path')
       .default(DEFAULT_SKILL_STORAGE_DIRECTORY),
+    RUN_DATA_DIR: z
+      .string()
+      .refine(isAbsolute, 'Must be an absolute path')
+      .default(DEFAULT_RUN_DATA_DIRECTORY),
+    MAX_CONCURRENT_RUNS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_CONCURRENT_RUNS_CEILING)
+      .default(DEFAULT_MAX_CONCURRENT_RUNS),
+    SANDBOX_NETWORK: z
+      .string()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/, 'Must be a Docker network name')
+      .default(DEFAULT_SANDBOX_NETWORK),
+    SANDBOX_EGRESS_PROXY_URL: z
+      .url({ protocol: /^http$/ })
+      .default(DEFAULT_SANDBOX_EGRESS_PROXY_URL),
+    DOCKER_COMMAND: z.string().min(1).default('docker'),
+    ANTHROPIC_API_KEY: OptionalSecretSchema,
+    OPENAI_API_KEY: OptionalSecretSchema,
   })
   .refine((environment) => environment.NODE_ENV !== 'production' || environment.APP_ORIGINS, {
     message: 'Required in production: the origin(s) the web app is served from',
@@ -93,6 +136,14 @@ export interface ApiConfig {
   skillStorageDirectory: string;
   /** Whether cookies are marked `Secure` (production, served over HTTPS). */
   isSecureCookie: boolean;
+  /** Absolute directory for run workspaces and temporary HOMEs. */
+  runDataDirectory: string;
+  /** Most runs active at once. */
+  maxConcurrentRuns: number;
+  /** Docker settings for run sandboxes. */
+  sandbox: { networkName: string; egressProxyUrl: string; dockerCommand: string };
+  /** Provider API keys by variable name. Injected into sandboxes only; never logged. */
+  providerApiKeys: Record<(typeof PROVIDER_API_KEY_VARIABLES)[number], string | undefined>;
 }
 
 /** Settings the migration and seed CLI needs. */
@@ -162,6 +213,17 @@ export function loadApiConfig(environmentVariables: EnvironmentVariables): ApiCo
     trustProxyHops: environment.TRUST_PROXY_HOPS,
     skillStorageDirectory: environment.SKILL_STORAGE_DIR,
     isSecureCookie: environment.NODE_ENV === 'production',
+    runDataDirectory: environment.RUN_DATA_DIR,
+    maxConcurrentRuns: environment.MAX_CONCURRENT_RUNS,
+    sandbox: {
+      networkName: environment.SANDBOX_NETWORK,
+      egressProxyUrl: environment.SANDBOX_EGRESS_PROXY_URL,
+      dockerCommand: environment.DOCKER_COMMAND,
+    },
+    providerApiKeys: {
+      ANTHROPIC_API_KEY: environment.ANTHROPIC_API_KEY,
+      OPENAI_API_KEY: environment.OPENAI_API_KEY,
+    },
   };
 }
 

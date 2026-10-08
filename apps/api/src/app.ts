@@ -37,8 +37,14 @@ import { createAuthService } from './modules/auth/auth.service.js';
 import { createHealthRepository } from './modules/health/health.repository.js';
 import { createHealthRouter } from './modules/health/health.routes.js';
 import { createHealthService } from './modules/health/health.service.js';
+import { createModelPricesRouter } from './modules/model-prices/model-prices.routes.js';
+import { createModelPricesService } from './modules/model-prices/model-prices.service.js';
 import { createProvidersRouter } from './modules/providers/providers.routes.js';
 import { createProvidersService } from './modules/providers/providers.service.js';
+import type { RunManager } from './modules/runs/run-manager.js';
+import { createAgentUsageRouter, createRunsRouter } from './modules/runs/runs.routes.js';
+import { createRunsService } from './modules/runs/runs.service.js';
+import type { RunsServiceSettings } from './modules/runs/runs.service.js';
 import { createSandboxProfilesRouter } from './modules/sandbox-profiles/sandbox-profiles.routes.js';
 import { createSandboxProfilesService } from './modules/sandbox-profiles/sandbox-profiles.service.js';
 import { createSkillStorage } from './modules/skills/skill-storage.js';
@@ -67,6 +73,8 @@ export interface AppSettings {
   isSecureCookie: boolean;
   /** Absolute directory for published skill files. */
   skillStorageDirectory: string;
+  /** Concurrency limit and provider API keys for launching runs. */
+  runs: RunsServiceSettings;
   /** Overrides for the default rate limits, e.g. to relax them in tests. */
   rateLimits?: RateLimitSettings;
 }
@@ -77,6 +85,11 @@ export interface AppDependencies {
   database: Knex;
   logger: Logger;
   settings: AppSettings;
+  /**
+   * Executes runs in the background. Created by the caller, which also
+   * recovers interrupted runs at startup and stops runs at shutdown.
+   */
+  runManager: RunManager;
 }
 
 /**
@@ -86,7 +99,7 @@ export interface AppDependencies {
  * @returns A configured Express app, ready to `listen` or hand to Supertest.
  */
 export function createApp(dependencies: AppDependencies): Express {
-  const { database, logger, settings } = dependencies;
+  const { database, logger, settings, runManager } = dependencies;
   const rateLimits = settings.rateLimits ?? DEFAULT_RATE_LIMIT_SETTINGS;
   const cookieSettings = { isSecure: settings.isSecureCookie };
 
@@ -102,9 +115,14 @@ export function createApp(dependencies: AppDependencies): Express {
   const sandboxProfilesService = createSandboxProfilesService(dataAccess);
   const agentsService = createAgentsService(dataAccess);
   const assignmentsService = createAssignmentsService(dataAccess);
-  const skillsService = createSkillsService({
+  const skillStorage = createSkillStorage(settings.skillStorageDirectory);
+  const skillsService = createSkillsService({ dataAccess, skillStorage });
+  const modelPricesService = createModelPricesService(dataAccess);
+  const runsService = createRunsService({
     dataAccess,
-    skillStorage: createSkillStorage(settings.skillStorageDirectory),
+    runManager,
+    skillStorage,
+    settings: settings.runs,
   });
 
   const app = express();
@@ -138,6 +156,9 @@ export function createApp(dependencies: AppDependencies): Express {
   protectedRoutes.use('/sandbox-profiles', createSandboxProfilesRouter(sandboxProfilesService));
   protectedRoutes.use('/agents', createAgentsRouter(agentsService));
   protectedRoutes.use('/agents', createAssignmentsRouter(assignmentsService));
+  protectedRoutes.use('/agents', createAgentUsageRouter(runsService));
+  protectedRoutes.use('/runs', createRunsRouter(runsService, logger));
+  protectedRoutes.use('/model-prices', createModelPricesRouter(modelPricesService));
   protectedRoutes.use('/skills', createSkillsRouter(skillsService));
   protectedRoutes.use('/skill-versions', createSkillVersionsRouter(skillsService));
   app.use('/api', protectedRoutes);
