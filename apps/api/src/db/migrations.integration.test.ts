@@ -3,7 +3,7 @@
  * rolls back completely, and keeps CHECK constraints in sync with the
  * shared value lists.
  */
-import { RUN_STATUSES, USER_ROLES } from '@agent-dashboard/shared';
+import { COST_SOURCES, RUN_STATUSES, USER_ROLES } from '@agent-dashboard/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestDatabaseClients, resetTestDatabase } from '../../test/database-test-helpers.js';
 
@@ -14,6 +14,7 @@ const EXPECTED_TABLES = [
   'agent_skill_assignments',
   'agents',
   'audit_log',
+  'model_prices',
   'run_events',
   'sandbox_profiles',
   'sessions',
@@ -90,6 +91,12 @@ describe('CHECK constraints match the shared value lists', () => {
     const definition = await getCheckConstraintDefinition('agent_runs_status_check');
 
     expect(extractQuotedValues(definition)).toEqual([...RUN_STATUSES]);
+  });
+
+  it('allows exactly the shared cost sources', async () => {
+    const definition = await getCheckConstraintDefinition('agent_runs_cost_source_check');
+
+    expect(extractQuotedValues(definition)).toEqual([...COST_SOURCES]);
   });
 
   it('allows exactly the shared user roles', async () => {
