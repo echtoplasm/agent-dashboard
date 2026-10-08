@@ -32,6 +32,9 @@ export function Layout(): ReactElement {
           Agent Dashboard
         </NavLink>
         <nav aria-label="Main">
+          <NavLink to="/runs" className={navLinkClassName}>
+            Runs
+          </NavLink>
           <NavLink to="/agents" className={navLinkClassName}>
             Agents
           </NavLink>
@@ -40,6 +43,9 @@ export function Layout(): ReactElement {
           </NavLink>
           <NavLink to="/sandbox-profiles" className={navLinkClassName}>
             Sandbox profiles
+          </NavLink>
+          <NavLink to="/model-prices" className={navLinkClassName}>
+            Model prices
           </NavLink>
           {canReadAuditLog(currentUser) && (
             <NavLink to="/audit-log" className={navLinkClassName}>

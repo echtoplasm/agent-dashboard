@@ -17,8 +17,11 @@ import { AgentDetailPage } from './pages/agents/AgentDetailPage.js';
 import { AgentsPage } from './pages/agents/AgentsPage.js';
 import { AuditLogPage } from './pages/AuditLogPage.js';
 import { LoginPage } from './pages/LoginPage.js';
+import { ModelPricesPage } from './pages/ModelPricesPage.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { OverviewPage } from './pages/OverviewPage.js';
+import { RunDetailPage } from './pages/runs/RunDetailPage.js';
+import { RunsPage } from './pages/runs/RunsPage.js';
 import { SandboxProfilesPage } from './pages/SandboxProfilesPage.js';
 import { SkillDetailPage } from './pages/skills/SkillDetailPage.js';
 import { SkillsPage } from './pages/skills/SkillsPage.js';
@@ -42,7 +45,10 @@ export function AppRoutes(): ReactElement {
           <Route path="skills" element={<SkillsPage />} />
           <Route path="skills/:skillId" element={<SkillDetailPage />} />
           <Route path="skills/:skillId/versions/:versionId" element={<SkillVersionPage />} />
+          <Route path="runs" element={<RunsPage />} />
+          <Route path="runs/:runId" element={<RunDetailPage />} />
           <Route path="sandbox-profiles" element={<SandboxProfilesPage />} />
+          <Route path="model-prices" element={<ModelPricesPage />} />
           <Route element={<RequirePermission isAllowed={canReadAuditLog} />}>
             <Route path="audit-log" element={<AuditLogPage />} />
           </Route>

@@ -9,9 +9,14 @@ import {
   AgentSkillAssignmentListResponseSchema,
   AgentSkillAssignmentSchema,
   AuditLogPageSchema,
+  AgentUsageSchema,
   CurrentUserResponseSchema,
+  ModelPriceListResponseSchema,
+  ModelPriceSchema,
   ProviderListResponseSchema,
   ProviderSchema,
+  RunDetailSchema,
+  RunListPageSchema,
   SandboxProfileListResponseSchema,
   SkillListResponseSchema,
   SkillSchema,
@@ -20,19 +25,27 @@ import {
   SkillVersionSummarySchema,
   UserListResponseSchema,
   UserSchema,
+  WorkspaceListingSchema,
 } from '@agent-dashboard/shared';
 import type {
   Agent,
   AgentSkillAssignment,
+  AgentUsage,
   AuditLogPage,
   ChangePasswordRequest,
   CreateAgentRequest,
   CreateSkillRequest,
   CreateUserRequest,
+  LaunchRunRequest,
   LoginRequest,
+  ModelPrice,
   Provider,
   PublishSkillVersionRequest,
+  RunDetail,
+  RunListPage,
+  RunStatus,
   SandboxProfile,
+  SetModelPriceRequest,
   Skill,
   SkillVersionDetail,
   SkillVersionSummary,
@@ -40,8 +53,9 @@ import type {
   UpdateSkillRequest,
   UpdateUserRequest,
   User,
+  WorkspaceListing,
 } from '@agent-dashboard/shared';
-import { apiRequest } from './api-client.js';
+import { API_BASE_URL, apiRequest } from './api-client.js';
 
 /** Query string for list endpoints that can include archived rows. */
 function archivedQuery(isIncludingArchived: boolean): string {
@@ -235,4 +249,79 @@ export function unassignSkill(agentId: string, skillId: string): Promise<void> {
 export function listAuditLog(before?: number): Promise<AuditLogPage> {
   const query = before === undefined ? '' : `?before=${before}`;
   return apiRequest(`/api/audit-log${query}`, AuditLogPageSchema);
+}
+
+// --- Runs -------------------------------------------------------------------
+
+/** Filters for the run list. */
+export interface RunListFilters {
+  agentId?: string;
+  status?: RunStatus;
+  limit?: number;
+  /** The previous page's `nextCursor`. */
+  before?: string;
+}
+
+/** Returns one page of runs, newest first. */
+export function listRuns(filters: RunListFilters = {}): Promise<RunListPage> {
+  const searchParams = new URLSearchParams();
+  for (const [name, value] of Object.entries(filters)) {
+    if (value !== undefined) {
+      searchParams.set(name, String(value));
+    }
+  }
+  const query = searchParams.size === 0 ? '' : `?${searchParams.toString()}`;
+  return apiRequest(`/api/runs${query}`, RunListPageSchema);
+}
+
+/** Returns a run with its prompt and skill versions. */
+export function getRun(runId: string): Promise<RunDetail> {
+  return apiRequest(`/api/runs/${runId}`, RunDetailSchema);
+}
+
+/** Launches a run. */
+export function launchRun(input: LaunchRunRequest): Promise<RunDetail> {
+  return apiRequest('/api/runs', RunDetailSchema, { method: 'POST', body: input });
+}
+
+/** Asks an active run to stop. */
+export function cancelRun(runId: string): Promise<RunDetail> {
+  return apiRequest(`/api/runs/${runId}/cancel`, RunDetailSchema, { method: 'POST' });
+}
+
+/** URL of a run's live event stream (Server-Sent Events). */
+export function buildRunStreamUrl(runId: string): string {
+  return `${API_BASE_URL}/api/runs/${runId}/stream`;
+}
+
+/** Lists the files a run left in its workspace. */
+export function listWorkspaceFiles(runId: string): Promise<WorkspaceListing> {
+  return apiRequest(`/api/runs/${runId}/workspace`, WorkspaceListingSchema);
+}
+
+/** URL that downloads one workspace file. */
+export function buildWorkspaceFileUrl(runId: string, path: string): string {
+  return `${API_BASE_URL}/api/runs/${runId}/workspace/file?path=${encodeURIComponent(path)}`;
+}
+
+/** Returns token and cost totals across an agent's runs. */
+export function getAgentUsage(agentId: string): Promise<AgentUsage> {
+  return apiRequest(`/api/agents/${agentId}/usage`, AgentUsageSchema);
+}
+
+// --- Model prices -----------------------------------------------------------
+
+/** Lists model prices. */
+export async function listModelPrices(): Promise<ModelPrice[]> {
+  return (await apiRequest('/api/model-prices', ModelPriceListResponseSchema)).items;
+}
+
+/** Creates or replaces a model's price. */
+export function setModelPrice(input: SetModelPriceRequest): Promise<ModelPrice> {
+  return apiRequest('/api/model-prices', ModelPriceSchema, { method: 'PUT', body: input });
+}
+
+/** Deletes a model price. */
+export function deleteModelPrice(modelPriceId: string): Promise<void> {
+  return apiRequest(`/api/model-prices/${modelPriceId}`, null, { method: 'DELETE' });
 }

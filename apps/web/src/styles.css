@@ -426,3 +426,88 @@ textarea:focus-visible,
 .login-form h1 {
   margin: 0;
 }
+
+/* --- Runs ------------------------------------------------------------------ */
+
+.run-prompt,
+.run-log__stderr,
+.run-log__tool pre {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+}
+
+.run-log {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.run-log > p {
+  margin: 0;
+}
+
+.run-log__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.run-log__meta {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.run-log__stderr {
+  color: var(--color-text-muted);
+}
+
+.run-log__error,
+.run-log__bad {
+  color: var(--color-bad);
+}
+
+.run-log__good {
+  color: var(--color-good);
+}
+
+.run-log__tool,
+.run-log__thinking {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.375rem 0.75rem;
+}
+
+.run-log__tool summary,
+.run-log__thinking summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.run-log__tool h4 {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.run-log__tool-name {
+  font-weight: 600;
+}
+
+.run-log__tool-summary {
+  color: var(--color-text-muted);
+}
+
+.run-log__result {
+  border-left: 3px solid var(--color-good);
+  padding-left: 0.75rem;
+}
+
+.run-log__result--bad {
+  border-left-color: var(--color-bad);
+}

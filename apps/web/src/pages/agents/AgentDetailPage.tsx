@@ -16,6 +16,7 @@ import { findNameById, useRegistryLookups } from '../../hooks/useRegistryLookups
 import type { RegistryLookups } from '../../hooks/useRegistryLookups.js';
 import { formatMicroUsd } from '../../lib/money.js';
 import { AgentForm } from './AgentForm.js';
+import { AgentRunsPanel } from './AgentRunsPanel.js';
 import { LoadoutPanel } from './LoadoutPanel.js';
 
 /**
@@ -144,6 +145,7 @@ function AgentDetails({
         )}
       </section>
 
+      <AgentRunsPanel agent={agent} canLaunch={isEditable} />
       <LoadoutPanel agent={agent} isEditable={isEditable} />
     </>
   );

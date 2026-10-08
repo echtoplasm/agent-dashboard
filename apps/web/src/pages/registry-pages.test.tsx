@@ -69,7 +69,29 @@ const SKILL_VERSION: SkillVersionSummary = {
   publishedAt: '2026-10-06T12:00:00.000Z',
 };
 
+const EMPTY_AGENT_RUN_ROUTES: FakeRoutes = {
+  [`GET /api/agents/${AGENT.id}/usage`]: {
+    status: 200,
+    body: {
+      runCount: 0,
+      activeRunCount: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costMicroUsd: 0,
+      monthToDateCostMicroUsd: 0,
+      unpricedRunCount: 0,
+    },
+  },
+  [`GET /api/runs?agentId=${AGENT.id}&limit=5`]: {
+    status: 200,
+    body: { items: [], nextCursor: null },
+  },
+};
+
 const BASE_ROUTES: FakeRoutes = {
+  ...EMPTY_AGENT_RUN_ROUTES,
   'GET /api/auth/me': { status: 200, body: { user: TEST_OPERATOR } },
   'GET /api/providers': { status: 200, body: { items: [PROVIDER] } },
   'GET /api/sandbox-profiles?includeArchived=true': { status: 200, body: { items: [] } },
