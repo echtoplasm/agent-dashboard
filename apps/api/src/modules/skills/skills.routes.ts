@@ -4,6 +4,7 @@
  * Skills router, mounted at `/api/skills`:
  * - `GET /`, `GET /:id`, `GET /:id/versions`: everyone.
  * - `POST /`, `PATCH /:id`, `POST /:id/archive`, `POST /:id/versions`: operators.
+ * - `DELETE /:id`: admins, and only for skills with no published versions.
  *
  * Skill versions router, mounted at `/api/skill-versions`:
  * - `GET /:id`: everyone; includes file contents.
@@ -65,6 +66,12 @@ export function createSkillsRouter(skillsService: SkillsService): Router {
   router.post('/:id/archive', requireOperator, async (request, response) => {
     const { id } = parseRequestPart(IdParamsSchema, request.params);
     response.json(await skillsService.archiveSkill(id, buildAuditContext(request)));
+  });
+
+  router.delete('/:id', requireRole(ROLE_GROUPS.ADMINS), async (request, response) => {
+    const { id } = parseRequestPart(IdParamsSchema, request.params);
+    await skillsService.deleteSkill(id, buildAuditContext(request));
+    response.status(HTTP_STATUS.NO_CONTENT).end();
   });
 
   router.post('/:id/versions', requireOperator, async (request, response) => {

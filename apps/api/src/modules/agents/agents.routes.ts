@@ -3,6 +3,7 @@
  *
  * - `GET /api/agents?includeArchived=true`, `GET /api/agents/:id`: everyone.
  * - `POST /api/agents`, `PATCH /api/agents/:id`, `POST /api/agents/:id/archive`: operators.
+ * - `DELETE /api/agents/:id`: admins, and only for agents that have never run.
  */
 import { Router } from 'express';
 import {
@@ -28,6 +29,7 @@ import type { AgentsService } from './agents.service.js';
 export function createAgentsRouter(agentsService: AgentsService): Router {
   const router = Router();
   const requireOperator = requireRole(ROLE_GROUPS.OPERATORS);
+  const requireAdmin = requireRole(ROLE_GROUPS.ADMINS);
 
   router.get('/', async (request, response) => {
     const { includeArchived: isIncludingArchived } = parseRequestPart(
@@ -57,6 +59,12 @@ export function createAgentsRouter(agentsService: AgentsService): Router {
   router.post('/:id/archive', requireOperator, async (request, response) => {
     const { id } = parseRequestPart(IdParamsSchema, request.params);
     response.json(await agentsService.archiveAgent(id, buildAuditContext(request)));
+  });
+
+  router.delete('/:id', requireAdmin, async (request, response) => {
+    const { id } = parseRequestPart(IdParamsSchema, request.params);
+    await agentsService.deleteAgent(id, buildAuditContext(request));
+    response.status(HTTP_STATUS.NO_CONTENT).end();
   });
 
   return router;

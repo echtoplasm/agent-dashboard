@@ -8,6 +8,8 @@
  * - Archived agents are read-only.
  * - Changing the provider or sandbox profile must keep every assigned skill
  *   valid (see `loadout-rules.ts`).
+ * - Admins may delete an agent only if it has never run. Anything with run
+ *   history is archived instead, so the history keeps its reference (D-026).
  */
 import type { Agent, CreateAgentRequest, UpdateAgentRequest } from '@agent-dashboard/shared';
 import type { DataAccess, Repositories } from '../../db/data-access.js';
@@ -28,6 +30,8 @@ export interface AgentsService {
   updateAgent(agentId: string, changes: UpdateAgentRequest, context: AuditContext): Promise<Agent>;
   /** @throws {NotFoundError | ConflictError} If already archived. */
   archiveAgent(agentId: string, context: AuditContext): Promise<Agent>;
+  /** @throws {NotFoundError | ConflictError} If the agent has ever run. */
+  deleteAgent(agentId: string, context: AuditContext): Promise<void>;
 }
 
 /**
@@ -179,6 +183,27 @@ export function createAgentsService(dataAccess: DataAccess): AgentsService {
           metadata: { changes },
         });
         return updatedAgent;
+      });
+    },
+
+    async deleteAgent(agentId, context) {
+      await dataAccess.runInTransaction(async (repositories) => {
+        const agent = await repositories.agents.findAgentById(agentId);
+        if (agent === undefined) {
+          throw new NotFoundError('Agent not found');
+        }
+        if ((await repositories.runs.countRunsForAgent(agentId)) > 0) {
+          throw new ConflictError(
+            'Agents that have run can only be archived, so their history is kept',
+          );
+        }
+        await repositories.agents.deleteAgent(agentId);
+        await repositories.audit.insertAuditEntry(context, {
+          action: 'agent.deleted',
+          targetType: 'agent',
+          targetId: agentId,
+          metadata: { name: agent.name },
+        });
       });
     },
 

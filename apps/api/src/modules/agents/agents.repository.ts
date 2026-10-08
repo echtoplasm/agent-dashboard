@@ -62,6 +62,8 @@ export interface AgentsRepository {
   /** Replaces every editable field. @throws {ConflictError} On a duplicate name. */
   updateAgent(agentId: string, fields: AgentFields): Promise<Agent | undefined>;
   archiveAgent(agentId: string): Promise<Agent | undefined>;
+  /** Deletes an agent and its assignments. Fails at the database if it has runs. */
+  deleteAgent(agentId: string): Promise<void>;
   /** Non-archived agents that use the sandbox profile. */
   listActiveAgentsUsingProfile(sandboxProfileId: string): Promise<Agent[]>;
 }
@@ -125,6 +127,11 @@ export function createAgentsRepository(database: DatabaseExecutor): AgentsReposi
         .where({ sandbox_profile_id: sandboxProfileId })
         .whereNull('archived_at');
       return rows.map(mapAgentRow);
+    },
+
+    async deleteAgent(agentId) {
+      await database('agent_skill_assignments').where({ agent_id: agentId }).delete();
+      await database('agents').where({ id: agentId }).delete();
     },
 
     async archiveAgent(agentId) {

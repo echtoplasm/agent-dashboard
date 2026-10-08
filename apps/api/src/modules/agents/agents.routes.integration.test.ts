@@ -4,6 +4,7 @@
 import {
   AgentListResponseSchema,
   AgentSchema,
+  AuditLogPageSchema,
   ProviderListResponseSchema,
   SandboxProfileListResponseSchema,
 } from '@agent-dashboard/shared';
@@ -190,5 +191,54 @@ describe('updating and archiving agents', () => {
     const response = await viewerAgent.get('/api/agents/00000000-0000-7000-8000-000000000000');
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe('deleting agents', () => {
+  it('lets an admin delete an agent that never ran, and audits it', async () => {
+    const adminAgent = (await createSignedInUser(app, appDatabase, 'admin')).agent;
+    const agent = await createAgent({ name: 'never-ran' });
+
+    const response = await adminAgent
+      .delete(`/api/agents/${agent.id}`)
+      .set('Origin', TEST_APP_ORIGIN);
+    const lookup = await viewerAgent.get(`/api/agents/${agent.id}`);
+    const auditPage = AuditLogPageSchema.parse(
+      (await adminAgent.get(`/api/audit-log?targetType=agent&targetId=${agent.id}`)).body,
+    );
+
+    expect(response.status).toBe(204);
+    expect(lookup.status).toBe(404);
+    expect(auditPage.items[0]).toMatchObject({
+      action: 'agent.deleted',
+      metadata: { name: 'never-ran' },
+    });
+  });
+
+  it('refuses to delete an agent with run history', async () => {
+    const adminAgent = (await createSignedInUser(app, appDatabase, 'admin')).agent;
+    const agent = await createAgent({ name: 'has-history' });
+    await appDatabase('agent_runs').insert({
+      agent_id: agent.id,
+      provider_id: claudeProviderId,
+      prompt: 'old run',
+      status: 'succeeded',
+    });
+
+    const response = await adminAgent
+      .delete(`/api/agents/${agent.id}`)
+      .set('Origin', TEST_APP_ORIGIN);
+
+    expect(response.status).toBe(409);
+  });
+
+  it('does not let operators delete agents', async () => {
+    const agent = await createAgent({ name: 'operator-delete' });
+
+    const response = await operatorAgent
+      .delete(`/api/agents/${agent.id}`)
+      .set('Origin', TEST_APP_ORIGIN);
+
+    expect(response.status).toBe(403);
   });
 });

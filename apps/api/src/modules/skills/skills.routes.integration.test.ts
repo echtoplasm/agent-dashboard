@@ -255,3 +255,40 @@ describe('publishing versions', () => {
     expect(response.text).not.toContain('evil');
   });
 });
+
+describe('deleting skills', () => {
+  it('lets an admin delete a skill that never published a version', async () => {
+    const adminAgent = (await createSignedInUser(app, appDatabase, 'admin')).agent;
+    const skill = await createSkill();
+
+    const response = await adminAgent
+      .delete(`/api/skills/${skill.id}`)
+      .set('Origin', TEST_APP_ORIGIN);
+    const lookup = await viewerAgent.get(`/api/skills/${skill.id}`);
+
+    expect(response.status).toBe(204);
+    expect(lookup.status).toBe(404);
+  });
+
+  it('refuses to delete a skill with published versions', async () => {
+    const adminAgent = (await createSignedInUser(app, appDatabase, 'admin')).agent;
+    const skill = await createSkill();
+    await publishVersion(skill.id);
+
+    const response = await adminAgent
+      .delete(`/api/skills/${skill.id}`)
+      .set('Origin', TEST_APP_ORIGIN);
+
+    expect(response.status).toBe(409);
+  });
+
+  it('does not let operators delete skills', async () => {
+    const skill = await createSkill();
+
+    const response = await operatorAgent
+      .delete(`/api/skills/${skill.id}`)
+      .set('Origin', TEST_APP_ORIGIN);
+
+    expect(response.status).toBe(403);
+  });
+});

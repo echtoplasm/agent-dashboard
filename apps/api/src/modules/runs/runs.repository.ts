@@ -172,6 +172,8 @@ export interface RunsRepository {
    */
   lockRunLaunches(): Promise<void>;
   countActiveRuns(): Promise<number>;
+  /** Number of runs an agent has ever had. */
+  countRunsForAgent(agentId: string): Promise<number>;
   /** @returns The new run's id. */
   insertRun(newRun: NewRun): Promise<string>;
   insertRunSkillVersions(runId: string, skillVersionIds: readonly string[]): Promise<void>;
@@ -257,6 +259,13 @@ export function createRunsRepository(database: DatabaseExecutor): RunsRepository
     async countActiveRuns() {
       const [row] = await database('agent_runs')
         .whereIn('status', ACTIVE_RUN_STATUSES)
+        .count<{ count: number }[]>({ count: '*' });
+      return row?.count ?? 0;
+    },
+
+    async countRunsForAgent(agentId) {
+      const [row] = await database('agent_runs')
+        .where({ agent_id: agentId })
         .count<{ count: number }[]>({ count: '*' });
       return row?.count ?? 0;
     },

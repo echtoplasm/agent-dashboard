@@ -54,6 +54,8 @@ export interface SkillsRepository {
   ): Promise<void>;
   replaceSupportedProviders(skillId: string, providerIds: readonly string[]): Promise<void>;
   archiveSkill(skillId: string): Promise<void>;
+  /** Deletes a skill and its provider links. Fails at the database if it has versions. */
+  deleteSkill(skillId: string): Promise<void>;
 }
 
 /**
@@ -133,6 +135,11 @@ export function createSkillsRepository(database: DatabaseExecutor): SkillsReposi
 
     async archiveSkill(skillId) {
       await database('skills').where({ id: skillId }).update({ archived_at: database.fn.now() });
+    },
+
+    async deleteSkill(skillId) {
+      await database('skill_supported_providers').where({ skill_id: skillId }).delete();
+      await database('skills').where({ id: skillId }).delete();
     },
   };
 }

@@ -5,9 +5,10 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { useParams } from 'react-router';
 import type { Agent } from '@agent-dashboard/shared';
-import { archiveAgent, getAgent, updateAgent } from '../../api/endpoints.js';
+import { archiveAgent, deleteAgent, getAgent, updateAgent } from '../../api/endpoints.js';
 import { useCurrentUser } from '../../auth/AuthContext.js';
-import { canManageRegistry } from '../../auth/permissions.js';
+import { canManageRegistry, isAdmin } from '../../auth/permissions.js';
+import { DeleteResourceButton } from '../../components/DeleteResourceButton.js';
 import { ErrorBanner } from '../../components/ErrorBanner.js';
 import { ResourceView } from '../../components/ResourceView.js';
 import { ArchivedPill } from '../../components/StatusPill.js';
@@ -63,29 +64,40 @@ function AgentDetails({
         <h1>
           {agent.name} <ArchivedPill archivedAt={agent.archivedAt} />
         </h1>
-        {isEditable && !isEditing && (
+        {!isEditing && (isEditable || isAdmin(currentUser)) && (
           <div className="form-actions">
-            <button
-              type="button"
-              className="button button--quiet"
-              onClick={() => {
-                setIsEditing(true);
-              }}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              className="button button--danger"
-              disabled={archiveAction.isRunning}
-              onClick={() => {
-                if (window.confirm(`Archive ${agent.name}? It becomes read-only.`)) {
-                  void archiveAction.run(() => archiveAgent(agent.id)).then(onChanged);
-                }
-              }}
-            >
-              Archive
-            </button>
+            {isEditable && (
+              <>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => {
+                    setIsEditing(true);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="button button--danger"
+                  disabled={archiveAction.isRunning}
+                  onClick={() => {
+                    if (window.confirm(`Archive ${agent.name}? It becomes read-only.`)) {
+                      void archiveAction.run(() => archiveAgent(agent.id)).then(onChanged);
+                    }
+                  }}
+                >
+                  Archive
+                </button>
+              </>
+            )}
+            {isAdmin(currentUser) && (
+              <DeleteResourceButton
+                resourceName={agent.name}
+                onDelete={() => deleteAgent(agent.id)}
+                redirectTo="/agents"
+              />
+            )}
           </div>
         )}
       </div>

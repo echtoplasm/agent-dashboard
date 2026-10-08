@@ -6,11 +6,18 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { Link, useParams } from 'react-router';
 import type { Provider, Skill } from '@agent-dashboard/shared';
-import { archiveSkill, getSkill, listSkillVersions, updateSkill } from '../../api/endpoints.js';
+import {
+  archiveSkill,
+  deleteSkill,
+  getSkill,
+  listSkillVersions,
+  updateSkill,
+} from '../../api/endpoints.js';
 import { useCurrentUser } from '../../auth/AuthContext.js';
-import { canManageRegistry } from '../../auth/permissions.js';
+import { canManageRegistry, isAdmin } from '../../auth/permissions.js';
 import { ErrorBanner } from '../../components/ErrorBanner.js';
 import { ResourceView } from '../../components/ResourceView.js';
+import { DeleteResourceButton } from '../../components/DeleteResourceButton.js';
 import { ArchivedPill } from '../../components/StatusPill.js';
 import { useApiResource, useAsyncAction } from '../../hooks/useApiResource.js';
 import { findNameById, useRegistryLookups } from '../../hooks/useRegistryLookups.js';
@@ -55,6 +62,8 @@ function SkillDetails({
   const updateAction = useAsyncAction();
   const archiveAction = useAsyncAction();
   const isEditable = canManageRegistry(currentUser) && skill.archivedAt === null;
+  // Only a skill that never published a version can be deleted (D-026).
+  const isDeletable = isAdmin(currentUser) && skill.latestVersion === null;
 
   function handleVersionPublished(): void {
     versions.reload();
@@ -67,31 +76,44 @@ function SkillDetails({
         <h1>
           {skill.name} <ArchivedPill archivedAt={skill.archivedAt} />
         </h1>
-        {isEditable && !isEditing && (
+        {!isEditing && (isEditable || isDeletable) && (
           <div className="form-actions">
-            <button
-              type="button"
-              className="button button--quiet"
-              onClick={() => {
-                setIsEditing(true);
-              }}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              className="button button--danger"
-              disabled={archiveAction.isRunning}
-              onClick={() => {
-                if (
-                  window.confirm(`Archive ${skill.name}? It can no longer be assigned or updated.`)
-                ) {
-                  void archiveAction.run(() => archiveSkill(skill.id)).then(onChanged);
-                }
-              }}
-            >
-              Archive
-            </button>
+            {isEditable && (
+              <>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => {
+                    setIsEditing(true);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="button button--danger"
+                  disabled={archiveAction.isRunning}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Archive ${skill.name}? It can no longer be assigned or updated.`,
+                      )
+                    ) {
+                      void archiveAction.run(() => archiveSkill(skill.id)).then(onChanged);
+                    }
+                  }}
+                >
+                  Archive
+                </button>
+              </>
+            )}
+            {isDeletable && (
+              <DeleteResourceButton
+                resourceName={skill.name}
+                onDelete={() => deleteSkill(skill.id)}
+                redirectTo="/skills"
+              />
+            )}
           </div>
         )}
       </div>

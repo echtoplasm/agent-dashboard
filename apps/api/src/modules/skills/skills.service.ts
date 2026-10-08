@@ -6,6 +6,9 @@
  *   versions.
  * - A provider cannot be removed from a skill while an active agent on that
  *   provider has the skill assigned, and an assigned skill cannot be archived.
+ * - Admins may delete a skill only if it has no published versions; once a
+ *   version exists, runs may have used it, so the skill can only be
+ *   archived (D-026).
  * - Versions are immutable. A new version must have a higher semver than
  *   every version already published.
  * - Publishing writes files to staging first, then inserts the database row
@@ -41,6 +44,8 @@ export interface SkillsService {
   updateSkill(skillId: string, changes: UpdateSkillRequest, context: AuditContext): Promise<Skill>;
   /** @throws {NotFoundError | ConflictError} */
   archiveSkill(skillId: string, context: AuditContext): Promise<Skill>;
+  /** @throws {NotFoundError | ConflictError} If the skill has published versions. */
+  deleteSkill(skillId: string, context: AuditContext): Promise<void>;
   /** @throws {NotFoundError} If the skill does not exist. */
   listVersions(skillId: string): Promise<SkillVersionSummary[]>;
   /** Returns a version with its files. @throws {NotFoundError} */
@@ -246,6 +251,24 @@ export function createSkillsService(dependencies: SkillsServiceDependencies): Sk
           metadata: {},
         });
         return getSkillFrom(repositories, skillId);
+      });
+    },
+
+    async deleteSkill(skillId, context) {
+      await dataAccess.runInTransaction(async (repositories) => {
+        const skillRecord = await findSkill(repositories, skillId);
+        if (skillRecord.publishedVersions.length > 0) {
+          throw new ConflictError(
+            'Skills with published versions can only be archived, so run history stays traceable',
+          );
+        }
+        await repositories.skills.deleteSkill(skillId);
+        await repositories.audit.insertAuditEntry(context, {
+          action: 'skill.deleted',
+          targetType: 'skill',
+          targetId: skillId,
+          metadata: { slug: skillRecord.slug },
+        });
       });
     },
 

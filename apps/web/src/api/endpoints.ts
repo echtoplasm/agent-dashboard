@@ -162,6 +162,11 @@ export function updateAgent(agentId: string, changes: UpdateAgentRequest): Promi
   return apiRequest(`/api/agents/${agentId}`, AgentSchema, { method: 'PATCH', body: changes });
 }
 
+/** Permanently deletes an agent that has never run (admins). */
+export function deleteAgent(agentId: string): Promise<void> {
+  return apiRequest(`/api/agents/${agentId}`, null, { method: 'DELETE' });
+}
+
 /** Archives an agent. */
 export function archiveAgent(agentId: string): Promise<Agent> {
   return apiRequest(`/api/agents/${agentId}/archive`, AgentSchema, { method: 'POST' });
@@ -189,6 +194,11 @@ export function createSkill(input: CreateSkillRequest): Promise<Skill> {
 /** Updates a skill's name, description or providers. */
 export function updateSkill(skillId: string, changes: UpdateSkillRequest): Promise<Skill> {
   return apiRequest(`/api/skills/${skillId}`, SkillSchema, { method: 'PATCH', body: changes });
+}
+
+/** Permanently deletes a skill with no published versions (admins). */
+export function deleteSkill(skillId: string): Promise<void> {
+  return apiRequest(`/api/skills/${skillId}`, null, { method: 'DELETE' });
 }
 
 /** Archives a skill. */
